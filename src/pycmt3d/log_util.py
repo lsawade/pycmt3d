@@ -95,8 +95,8 @@ def print_inversion_summary(npar, cmtsource, new_cmtsource,
 
     logger.info("Trace: %e" % (np.sum(new_cmt_par[0:3])))
     logger.info("Energy change(scalar moment): %5.2f%%" % (
-        (new_cmtsource.M0 - cmtsource.M0) /
-        cmtsource.M0 * 100.0))
+        (new_cmtsource.M0 - cmtsource.M0)
+        / cmtsource.M0 * 100.0))
 
     inversion_result_table(
         npar, cmtsource, new_cmtsource, bootstrap_flag=bootstrap,

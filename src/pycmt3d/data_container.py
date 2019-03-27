@@ -270,8 +270,8 @@ def load_winfile_json(flexwin_file, initial_weight=1.0):
     trwins = []
     with open(flexwin_file, 'r') as fh:
         content = json.load(fh)
-        for _sta, _channel in content.iteritems():
-            for _chan_win in _channel.itervalues():
+        for _sta, _channel in content.items():
+            for _chan_win in _channel.values():
                 num_wins = len(_chan_win)
                 if num_wins <= 0:
                     continue
@@ -670,8 +670,8 @@ class DataContainer(Sequence):
 
         if len(network) >= 3 or len(station) <= 2:
             raise ValueError("Station string should be 'NW.STA.LOC.COMP'"
-                             "But current is: %s" % station_info +
-                             "You may place the network and station name in"
+                             "But current is: %s" % station_info
+                             + "You may place the network and station name in"
                              "the wrong order")
 
         station_name = network + "_" + station
@@ -710,8 +710,8 @@ class DataContainer(Sequence):
 
         if len(network) >= 3 and len(station) <= 2:
             raise ValueError("Station string should be 'NW.STA.LOC.COMP'"
-                             "But current is: %s" % station_info +
-                             "You may place the network and station name in"
+                             "But current is: %s" % station_info
+                             + "You may place the network and station name in"
                              "the wrong order")
 
         station_name = network + "_" + station
@@ -736,7 +736,7 @@ class DataContainer(Sequence):
             os.makedirs(outputdir)
 
         new_synt_dict = self._sort_new_synt()
-        for tag, win_array in new_synt_dict.iteritems():
+        for tag, win_array in new_synt_dict.items():
             for window in win_array:
                 sta = window.station
                 nw = window.network
@@ -751,7 +751,7 @@ class DataContainer(Sequence):
     def write_new_synt_asdf(self, file_prefix):
         new_synt_dict = self._sort_new_synt()
 
-        for tag, win_array in new_synt_dict.iteritems():
+        for tag, win_array in new_synt_dict.items():
             filename = "%s.%s.h5" % (file_prefix, tag)
             if os.path.exists(filename):
                 os.remove(filename)

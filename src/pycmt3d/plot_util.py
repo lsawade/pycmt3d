@@ -16,7 +16,6 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from mpl_toolkits.basemap import Basemap
 from matplotlib.patches import Rectangle
 from obspy.geodetics import gps2dist_azimuth
 from obspy.imaging.beachball import beach
@@ -289,7 +288,7 @@ class PlotInvSummary(object):
 
     def calculate_azimuth_bin(self, azimuth_array):
         """
-        Calculate the azimuth and sort them into bins
+        Calculate the azimuth and sort them into binsconda instal
 
         :return:
         """
@@ -318,7 +317,7 @@ class PlotInvSummary(object):
         text = "Mw=%4.3f" % cmt.moment_magnitude
         plt.text(-0.9, -0.3, text, fontsize=7)
         # lat and lon
-        text = "lat=%6.3f$^\circ$; lon=%6.3f$^\circ$" \
+        text = "lat=%6.3f$^\\circ$; lon=%6.3f$^\\circ$" \
                % (cmt.latitude, cmt.longitude)
         plt.text(-0.9, -0.5, text, fontsize=7)
         # depth
@@ -476,6 +475,10 @@ class PlotInvSummary(object):
         """
         Plot global map of event and stations
         """
+
+        # import basemap here due to error
+        from mpl_toolkits.basemap import Basemap
+
         # ax = plt.subplot(211)
         plt.title(self.cmtsource.eventname)
         m = Basemap(projection='cyl', lon_0=0.0, lat_0=0.0,

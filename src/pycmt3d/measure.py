@@ -166,8 +166,8 @@ def get_f_df(npar, A, b, m, lam, mstart, fij, f0):
 
     # f(x^i) = H_jk (m_k^i -m_k^0) - b_j + lam_1 * U_j + lam_2 * V_j (A11)
     f0.fill(0.)
-    f0[0:npar] = np.dot(A[0:npar, 0:npar], m[0:npar] -
-                        mstart[0:npar]) - b[0:npar]
+    f0[0:npar] = np.dot(A[0:npar, 0:npar], m[0:npar]
+                        - mstart[0:npar]) - b[0:npar]
     # print "f0 step1:", f0
     f0[0:constant.NM] += \
         lam[0] * dc1_dm[0:constant.NM] + lam[1] * dc2_dm[0:constant.NM]
@@ -225,8 +225,8 @@ def calculate_dsyn(datalist, win_idx, parlist, dcmt_par, taper_type="tukey"):
         elif itype < constant.NML:
             # location, finite difference to get dsyn
             dsyn[itype, :] = \
-                (datalist[type_name].data[istart:iend] -
-                 datalist['synt'].data[istart:iend]) / dcmt_par[itype]
+                (datalist[type_name].data[istart:iend]
+                 - datalist['synt'].data[istart:iend]) / dcmt_par[itype]
         elif itype == constant.NML:
             # time shift
             dt = datalist['synt'].stats.delta
@@ -268,16 +268,16 @@ def calculate_denv(datalist, win_idx, parlist, dcmt_par, taper_type):
         if itype < constant.NM:
             # moment tensor, linear term
             denv[itype, :] = \
-                (_envelope(taper * (datalist['synt'].data[istart:iend] +
-                                    datalist[type_name].data[istart:iend])) -
-                 _envelope(taper * (datalist['synt'].data[istart:iend]))) / \
-                dcmt_par[itype]
+                (_envelope(taper * (datalist['synt'].data[istart:iend]
+                                    + datalist[type_name].data[istart:iend]))
+                    - _envelope(taper * (datalist['synt'].data[istart:iend])))\
+                / dcmt_par[itype]
         elif itype < constant.NML:
             # location, finite difference to get denv
             denv[itype, :] = \
-                (_envelope(taper * datalist[type_name].data[istart:iend]) -
-                 _envelope(taper * datalist['synt'].data[istart:iend])) / \
-                dcmt_par[itype]
+                (_envelope(taper * datalist[type_name].data[istart:iend])
+                    - _envelope(taper * datalist['synt'].data[istart:iend]))\
+                / dcmt_par[itype]
         elif itype == constant.NML:
             # time shift
             dt = datalist['synt'].stats.delta
@@ -338,10 +338,9 @@ def compute_envelope_matrix(denv, obsd, synt, dt, win_idx, taper_type):
     taper = construct_taper(iend_s - istart_s, taper_type=taper_type)
 
     A1 = np.dot(denv, denv.transpose()) * dt
-    b1 = np.sum(
-        (np.abs(hilbert(taper * obs_array[istart_d:iend_d])) -
-         np.abs(hilbert(taper * syn_array[istart_s:iend_s]))) *
-        denv * dt, axis=1)
+    b1 = np.sum((np.abs(hilbert(taper * obs_array[istart_d:iend_d]))
+                - np.abs(hilbert(taper * syn_array[istart_s:iend_s])))
+                * denv * dt, axis=1)
     return A1, b1
 
 
@@ -361,9 +360,9 @@ def compute_waveform_matrix(dsyn, obsd, synt, dt, win_idx, taper_type):
 
     A1 = np.dot(dsyn, dsyn.transpose()) * dt
     b1 = np.sum(
-        taper * (obs_array[istart_d:iend_d] -
-                 syn_array[istart_s:iend_s]) *
-        dsyn * dt, axis=1)
+        taper * (obs_array[istart_d:iend_d]
+                 - syn_array[istart_s:iend_s])
+        * dsyn * dt, axis=1)
 
     return A1, b1
 
@@ -385,14 +384,14 @@ def compute_envelope_matrix_theo(dsyn, obsd, synt, dt, win_idx, taper):
     syn_env = np.abs(syn_analytic)
     dsyn_hilbert = np.imag(hilbert(dsyn))
     env_derivss = \
-        syn_env ** (-0.5) * (syn_array[istart:iend] * dsyn +
-                             syn_hilbert * dsyn_hilbert)
+        syn_env ** (-0.5) * (syn_array[istart:iend] * dsyn
+                             + syn_hilbert * dsyn_hilbert)
 
     A1 = np.dot(env_derivss, env_derivss.transpose()) * dt
     b1 = np.sum(
-        (np.abs(hilbert(taper * obs_array[istart:iend])) -
-         np.abs(hilbert(taper * syn_array[istart:iend]))) *
-        env_derivss * dt, axis=1)
+        (np.abs(hilbert(taper * obs_array[istart:iend]))
+         - np.abs(hilbert(taper * syn_array[istart:iend])))
+        * env_derivss * dt, axis=1)
     return A1, b1
 
 
@@ -476,12 +475,12 @@ def compute_new_syn_on_trwin(datalist, parlist, dcmt_par, dm):
         if i < constant.NM:
             dsyn[:, i] = datalist[parlist[i]].data / dcmt_par[i]
         elif i < constant.NML:
-            dsyn[:, i] = (datalist[parlist[i]].data -
-                          datalist['synt'].data) / dcmt_par[i]
+            dsyn[:, i] = (datalist[parlist[i]].data
+                          - datalist['synt'].data) / dcmt_par[i]
         elif i == constant.NML:
             dsyn[0:(npts - 1), i] = \
-                -(datalist['synt'].data[1:npts] -
-                  datalist[0:(npts - 1)]) / (dt * dcmt_par[i])
+                -(datalist['synt'].data[1:npts]
+                  - datalist[0:(npts - 1)]) / (dt * dcmt_par[i])
             dsyn[npts - 1, i] = dsyn[npts - 2, i]
         elif i == (constant.NML + 1):
             # not implement yet....
