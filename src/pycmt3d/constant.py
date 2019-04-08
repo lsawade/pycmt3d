@@ -40,5 +40,5 @@ NM = 6
 # number of pars for moment+location only
 NML = 9
 
-# Max step in non-linear solvoer
+# Max step in non-linear solver
 NMAX_NL_ITER = 60
