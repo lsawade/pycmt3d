@@ -630,9 +630,11 @@ class DataContainer(Sequence):
 
         obsd_id = trace_obj.path_dict["obsd"]
         synt_id = trace_obj.path_dict["synt"]
+
         trace_obj.datalist['obsd'], trace_obj.tags['obsd'] = \
             self._get_trace_from_asdf(obsd_id, asdf_ds['obsd'],
                                       obsd_tag)
+
         trace_obj.datalist['synt'], trace_obj.tags['synt'] = \
             self._get_trace_from_asdf(synt_id, asdf_ds['synt'],
                                       synt_tag)
@@ -713,9 +715,11 @@ class DataContainer(Sequence):
                              + "You may place the network and station name in"
                              "the wrong order")
 
-        station_name = network + "_" + station
+        station_name = network + "." + station
+
         # get the tag
         st = getattr(asdf_handle.waveforms, station_name)
+
         tag_list = st.get_waveform_tags()
         if tag is None:
             if len(tag_list) != 1:
@@ -726,8 +730,12 @@ class DataContainer(Sequence):
             tag = tag_list[0]
         else:
             stream = getattr(st, tag)
-        tr = stream.select(network=network, station=station, location=loc,
-                           channel=channel)[0]
+
+        # Get component! Fix for update in pyflex
+        comp = channel[-1]
+        tr = stream.select(network=network, station=station,
+                           component=comp)[0]
+
         return tr.copy(), tag
 
     def write_new_synt_sac(self, outputdir, suffix=None):
