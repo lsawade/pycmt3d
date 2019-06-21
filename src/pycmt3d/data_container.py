@@ -275,8 +275,7 @@ def load_winfile_json(flexwin_file, initial_weight=1.0):
                 num_wins = len(_chan_win)
                 if num_wins <= 0:
                     continue
-                obsd_id = _chan_win[0]["channel_id"]
-                synt_id = _chan_win[0]["channel_id_2"]
+                channel_id = _chan_win[0]["channel_id"]
                 win_time = np.zeros([num_wins, 2])
                 win_weight = np.zeros(num_wins)
                 for _idx, _win in enumerate(_chan_win):
@@ -286,7 +285,7 @@ def load_winfile_json(flexwin_file, initial_weight=1.0):
                         win_weight[_idx] = _win["initial_weighting"]
                     else:
                         win_weight[_idx] = initial_weight
-                path_dict = {"obsd": obsd_id, "synt": synt_id}
+                path_dict = {"obsd": channel_id, "synt": channel_id}
                 trace_obj = TraceWindow(windows=win_time,
                                         init_weight=win_weight,
                                         path_dict=path_dict)
