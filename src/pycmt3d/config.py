@@ -195,6 +195,7 @@ class Config(object):
             [self.dmoment, self.dmoment, self.dmoment, self.dmoment,
              self.dmoment, self.dmoment, self.ddepth, self.dlocation,
              self.dlocation, 1.0, 1.0])[:npar]
+
         # scaled cmt perturbation
         print(self.dcmt_par)
         print(self.scale_vector)

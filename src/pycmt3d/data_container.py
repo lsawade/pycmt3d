@@ -399,7 +399,7 @@ class DataContainer(Sequence):
                                   initial_weight=1.0,
                                   external_stationfile=None,
                                   window_time_mode="relative_time",
-                                  file_format="txt"):
+                                  file_format="json"):
         """
         Add measurments(window and seismograms) from the given flexwinfile
         and the data format should be sac
