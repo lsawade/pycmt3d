@@ -55,7 +55,8 @@ def dcon_one():
     os.chdir(DATA_DIR)
     window_file = os.path.join(DATA_DIR,
                                "flexwin_T006_T030.output.one_station")
-    dcon.add_measurements_from_sac(window_file, tag="T006_T030")
+    dcon.add_measurements_from_sac(window_file, tag="T006_T030",
+                                   file_format="txt")
     return dcon
 
 
@@ -67,7 +68,8 @@ def construct_dcon_two():
     os.chdir(DATA_DIR)
     window_file = os.path.join(DATA_DIR,
                                "flexwin_T006_T030.output.two_stations")
-    dcon.add_measurements_from_sac(window_file, tag="T006_T030")
+    dcon.add_measurements_from_sac(window_file, tag="T006_T030",
+                                   file_format="txt")
     return dcon
 
 
