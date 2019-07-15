@@ -1,7 +1,8 @@
+dist: xenial # neede for python 3.7 or higher
 language: python
 
 python:
-    - "2.7"
+    - "3.7"
 
 before_install:
     - sudo apt-get update
