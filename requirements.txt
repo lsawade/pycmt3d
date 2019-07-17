@@ -1,1 +1,1 @@
-git+git://github.com/wjlei1990/spaceweight.git@master
+git+git://github.com/lsawade/spaceweight.git@master
