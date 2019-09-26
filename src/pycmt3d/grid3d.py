@@ -278,7 +278,10 @@ class Grid3d(object):
                 weights.extend(meta.weights)
             weights = np.array(weights)
         else:
-            weights = np.ones(len(self.data_container.nwindows))
+            if self.data_container.nwindows:
+                weights = np.ones(self.data_container.nwindows)
+            else:
+                weights = np.ones(len(self.data_container.nwindows))
 
         for i in range(nm00):
             m00 = m00_array[i]
