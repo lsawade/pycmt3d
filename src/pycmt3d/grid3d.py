@@ -289,7 +289,7 @@ class Grid3d(object):
             measures = \
                 self.calculate_misfit_for_m00(m00)
 
-            if self.config.energy_keys is not None:
+            if self.config.energy_keys != "None":
                 for key_idx, key in enumerate(self.config.energy_keys):
                     cat_val = np.sum(measures[key]**2 * weights)
                     cat_misfits[key][i] = cat_val
