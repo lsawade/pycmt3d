@@ -9,3 +9,4 @@ src/pycmt3d.egg-info/*
 log.txt
 *.png
 *.log
+ .DS_Store
