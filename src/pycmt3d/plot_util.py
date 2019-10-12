@@ -48,19 +48,27 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
 
     fig = plt.figure(figsize=(15, 5))
 
-    # plot seismogram
-    plt.subplot(211)
-    plt.plot(times, obsd.data, color="black", linewidth=0.5, alpha=0.6,
-             label="obsd")
-    plt.plot(times, synt.data, color="red", linewidth=0.8,
-             label="synt")
-    plt.plot(times, new_synt.data, color="green", linewidth=0.8,
-             label="new synt")
-    plt.xlim(times[0], times[-1])
+    plt.rcParams.update({'font.size': 14,
+                         'font.weight': "bold"})
 
+    # plot seismogram
+    ax1 = plt.subplot(211)
+    ax1.plot(times, obsd.data, color="black", linewidth=0.8, alpha=0.6,
+             label="obsd")
+    ax1.plot(times, synt.data, color="red", linewidth=1,
+             label="synt")
+    ax1.plot(times, new_synt.data, color="green", linewidth=1,
+             label="new synt")
+    ax1.set_xlim(times[0], times[-1])
+
+    for axis in ['top', 'bottom', 'left', 'right']:
+        ax1.spines[axis].set_linewidth(2)
+
+    # Get the limits
     xlim1 = plt.xlim()[1]
     ylim1 = plt.ylim()[1]
-    fontsize = 9
+
+    fontsize = 12
     plt.text(0.01*xlim1, 0.80*ylim1, "Network: %2s    Station: %s" %
              (network, station), fontsize=fontsize)
     plt.text(0.01*xlim1, 0.65*ylim1,  "Location: %2s  Channel:%3s" %
@@ -75,14 +83,19 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
         plt.gca().add_patch(re)
 
     # plot envelope
-    plt.subplot(212)
-    plt.plot(times, _envelope(obsd.data), color="black", linewidth=0.5,
+    ax2 = plt.subplot(212)
+    ax2.plot(times, _envelope(obsd.data), color="black", linewidth=0.8,
              alpha=0.6, label="obsd")
-    plt.plot(times, _envelope(synt.data), color="red", linewidth=0.8,
+    ax2.plot(times, _envelope(synt.data), color="red", linewidth=1,
              label="synt")
-    plt.plot(times, _envelope(new_synt.data), color="green", linewidth=0.8,
+    ax2.plot(times, _envelope(new_synt.data), color="green", linewidth=1,
              label="new synt")
-    plt.xlim(times[0], times[-1])
+    ax2.set_xlim(times[0], times[-1])
+
+    ax2.set_xlabel("Time [s]")
+
+    for axis in ['top', 'bottom', 'left', 'right']:
+        ax2.spines[axis].set_linewidth(2)
 
     for win in trwin.windows:
         left = win[0] + offset
