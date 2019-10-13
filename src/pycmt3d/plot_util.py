@@ -48,8 +48,9 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
 
     fig = plt.figure(figsize=(15, 5))
 
-    plt.rcParams.update({'font.size': 14,
-                         'font.weight': "bold"})
+    plt.rcParams.update({'font.size': 13,
+                         'font.weight': "bold",
+                         'lines.linewidth': 2})
 
     # plot seismogram
     ax1 = plt.subplot(211)
@@ -60,9 +61,6 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
     ax1.plot(times, new_synt.data, color="green", linewidth=1,
              label="new synt")
     ax1.set_xlim(times[0], times[-1])
-
-    for axis in ['top', 'bottom', 'left', 'right']:
-        ax1.spines[axis].set_linewidth(2)
 
     # Get the limits
     xlim1 = plt.xlim()[1]
@@ -92,10 +90,7 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
              label="new synt")
     ax2.set_xlim(times[0], times[-1])
 
-    ax2.set_xlabel("Time [s]")
-
-    for axis in ['top', 'bottom', 'left', 'right']:
-        ax2.spines[axis].set_linewidth(2)
+    ax2.set_xlabel("Time [s]", fontsize=13, fontweight="bold")
 
     for win in trwin.windows:
         left = win[0] + offset
