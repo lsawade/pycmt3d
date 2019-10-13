@@ -63,7 +63,7 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
 
     # Setting top left corner text manually
     fontsize = 11
-    ax1.text(0.11, 0.75,
+    ax1.text(0.08, 0.775,
              "Network: %2s    Station: %s\n"
              "Location: %2s  Channel: %3s" %
              (network, station, location, channel),
