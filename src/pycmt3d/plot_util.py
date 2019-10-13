@@ -49,8 +49,7 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
     fig = plt.figure(figsize=(15, 5))
 
     plt.rcParams.update({'font.size': 13,
-                         'font.weight': "bold",
-                         'lines.linewidth': 2})
+                         'lines.linewidth': 1.5})
 
     # plot seismogram
     ax1 = plt.subplot(211)
@@ -66,11 +65,12 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
     xlim1 = plt.xlim()[1]
     ylim1 = plt.ylim()[1]
 
-    fontsize = 12
-    plt.text(0.01*xlim1, 0.80*ylim1, "Network: %2s    Station: %s" %
-             (network, station), fontsize=fontsize)
-    plt.text(0.01*xlim1, 0.65*ylim1,  "Location: %2s  Channel:%3s" %
-             (location, channel), fontsize=fontsize)
+    fontsize = 11
+    plt.text(0.01*xlim1, 0.80*ylim1, "Network: %2s    Station: %s\n"
+                                     "Location: %2s  Channel: %3s" %
+             (network, station, location, channel), fontsize=fontsize)
+    # plt.text(0.01*xlim1, 0.65*ylim1, "Location: %2s  Channel: %3s"  %
+    #          (location, channel), fontsize=fontsize)
 
     for win in trwin.windows:
         left = win[0] + offset
@@ -102,6 +102,7 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
 
     logger.info("output figname: %s" % outputfig)
     plt.legend(prop={'size': 6})
+    ax2.legend(loc='upper left', frameon=False, ncol=3)
     plt.savefig(outputfig)
     plt.close(fig)
 
