@@ -61,16 +61,14 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
              label="new synt")
     ax1.set_xlim(times[0], times[-1])
 
-    # Get the limits
-    xlim1 = plt.xlim()[1]
-    ylim1 = plt.ylim()[1]
-
+    # Setting top left corner text manually
     fontsize = 11
-    plt.text(0.01*xlim1, 0.65*ylim1,
+    ax1.text(0.11, 0.75,
              "Network: %2s    Station: %s\n"
              "Location: %2s  Channel: %3s" %
              (network, station, location, channel),
-             fontsize=fontsize)
+             fontsize=fontsize,
+             transform=ax1.transAxes)
 
     for win in trwin.windows:
         left = win[0] + offset
@@ -101,7 +99,7 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
         plt.gca().add_patch(re)
 
     logger.info("output figname: %s" % outputfig)
-    ax2.legend(loc='upper right', frameon=False, ncol=3, prop={'size': 8})
+    ax2.legend(loc='upper right', frameon=False, ncol=3, prop={'size': 11})
     plt.savefig(outputfig)
     plt.close(fig)
 
