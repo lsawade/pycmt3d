@@ -57,9 +57,10 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
              label="obsd")
     ax1.plot(times, synt.data, color="red", linewidth=1,
              label="synt")
-    ax1.plot(times, new_synt.data, color="green", linewidth=1,
+    ax1.plot(times, new_synt.data, color="blue", linewidth=1,
              label="new synt")
     ax1.set_xlim(times[0], times[-1])
+    ax1.legend(loc='upper right', frameon=False, ncol=3, prop={'size': 11})
 
     # Setting top left corner text manually
     fontsize = 11
@@ -84,7 +85,7 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
              alpha=0.6, label="obsd")
     ax2.plot(times, _envelope(synt.data), color="red", linewidth=1,
              label="synt")
-    ax2.plot(times, _envelope(new_synt.data), color="green", linewidth=1,
+    ax2.plot(times, _envelope(new_synt.data), color="blue", linewidth=1,
              label="new synt")
     ax2.set_xlim(times[0], times[-1])
 
