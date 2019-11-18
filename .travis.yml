@@ -1,7 +1,8 @@
+dist: xenial # neede for python 3.7 or higher
 language: python
 
 python:
-    - "2.7"
+    - "3.7"
 
 before_install:
     - sudo apt-get update
@@ -14,15 +15,16 @@ before_install:
     - export PATH="$HOME/miniconda/bin:$PATH"
     - hash -r
     - conda config --set always_yes yes --set changeps1 no
+    - conda config --add channels conda-forge
     - conda update -q conda
     - conda info -a
     - conda create -n condaenv python=$TRAVIS_PYTHON_VERSION
     - conda install -n condaenv pip
     - source activate condaenv
-    - conda install -c obspy obspy
+    - conda install obspy
     - conda install basemap
     - pip install --user geographiclib
-    - conda install python=$TRAVIS_PYTHON_VERSION atlas numpy scipy matplotlib nose pytest flake8 sphinx lxml sqlalchemy mock future
+    - conda install python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib nose pytest flake8 sphinx lxml sqlalchemy mock future
     - pip install --user -r requirements.txt
     - pip install coverage
     - pip install coveralls

@@ -16,7 +16,6 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from mpl_toolkits.basemap import Basemap
 from matplotlib.patches import Rectangle
 from obspy.geodetics import gps2dist_azimuth
 from obspy.imaging.beachball import beach
@@ -49,23 +48,28 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
 
     fig = plt.figure(figsize=(15, 5))
 
-    # plot seismogram
-    plt.subplot(211)
-    plt.plot(times, obsd.data, color="black", linewidth=0.5, alpha=0.6,
-             label="obsd")
-    plt.plot(times, synt.data, color="red", linewidth=0.8,
-             label="synt")
-    plt.plot(times, new_synt.data, color="green", linewidth=0.8,
-             label="new synt")
-    plt.xlim(times[0], times[-1])
+    plt.rcParams.update({'font.size': 13,
+                         'lines.linewidth': 1.5})
 
-    xlim1 = plt.xlim()[1]
-    ylim1 = plt.ylim()[1]
-    fontsize = 9
-    plt.text(0.01*xlim1, 0.80*ylim1, "Network: %2s    Station: %s" %
-             (network, station), fontsize=fontsize)
-    plt.text(0.01*xlim1, 0.65*ylim1,  "Location: %2s  Channel:%3s" %
-             (location, channel), fontsize=fontsize)
+    # plot seismogram
+    ax1 = plt.subplot(211)
+    ax1.plot(times, obsd.data, color="black", linewidth=0.8, alpha=0.6,
+             label="obsd")
+    ax1.plot(times, synt.data, color="red", linewidth=1,
+             label="synt")
+    ax1.plot(times, new_synt.data, color="blue", linewidth=1,
+             label="new synt")
+    ax1.set_xlim(times[0], times[-1])
+    ax1.legend(loc='upper right', frameon=False, ncol=3, prop={'size': 11})
+
+    # Setting top left corner text manually
+    fontsize = 11
+    ax1.text(0.005, 0.8,
+             "Network: %2s    Station: %s\n"
+             "Location: %2s  Channel: %3s" %
+             (network, station, location, channel),
+             fontsize=fontsize,
+             transform=ax1.transAxes)
 
     for win in trwin.windows:
         left = win[0] + offset
@@ -76,14 +80,16 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
         plt.gca().add_patch(re)
 
     # plot envelope
-    plt.subplot(212)
-    plt.plot(times, _envelope(obsd.data), color="black", linewidth=0.5,
+    ax2 = plt.subplot(212)
+    ax2.plot(times, _envelope(obsd.data), color="black", linewidth=0.8,
              alpha=0.6, label="obsd")
-    plt.plot(times, _envelope(synt.data), color="red", linewidth=0.8,
+    ax2.plot(times, _envelope(synt.data), color="red", linewidth=1,
              label="synt")
-    plt.plot(times, _envelope(new_synt.data), color="green", linewidth=0.8,
+    ax2.plot(times, _envelope(new_synt.data), color="blue", linewidth=1,
              label="new synt")
-    plt.xlim(times[0], times[-1])
+    ax2.set_xlim(times[0], times[-1])
+
+    ax2.set_xlabel("Time [s]", fontsize=13)
 
     for win in trwin.windows:
         left = win[0] + offset
@@ -94,7 +100,7 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
         plt.gca().add_patch(re)
 
     logger.info("output figname: %s" % outputfig)
-    plt.legend(prop={'size': 6})
+    ax2.legend(loc='upper right', frameon=False, ncol=3, prop={'size': 11})
     plt.savefig(outputfig)
     plt.close(fig)
 
@@ -289,7 +295,7 @@ class PlotInvSummary(object):
 
     def calculate_azimuth_bin(self, azimuth_array):
         """
-        Calculate the azimuth and sort them into bins
+        Calculate the azimuth and sort them into binsconda instal
 
         :return:
         """
@@ -318,7 +324,7 @@ class PlotInvSummary(object):
         text = "Mw=%4.3f" % cmt.moment_magnitude
         plt.text(-0.9, -0.3, text, fontsize=7)
         # lat and lon
-        text = "lat=%6.3f$^\circ$; lon=%6.3f$^\circ$" \
+        text = "lat=%6.3f$^\\circ$; lon=%6.3f$^\\circ$" \
                % (cmt.latitude, cmt.longitude)
         plt.text(-0.9, -0.5, text, fontsize=7)
         # depth
@@ -476,6 +482,10 @@ class PlotInvSummary(object):
         """
         Plot global map of event and stations
         """
+
+        # import basemap here due to error
+        from mpl_toolkits.basemap import Basemap
+
         # ax = plt.subplot(211)
         plt.title(self.cmtsource.eventname)
         m = Basemap(projection='cyl', lon_0=0.0, lat_0=0.0,

@@ -278,18 +278,23 @@ class Grid3d(object):
                 weights.extend(meta.weights)
             weights = np.array(weights)
         else:
-            weights = np.ones(len(self.data_container.nwindows))
+            if self.data_container.nwindows:
+                weights = np.ones(self.data_container.nwindows)
+            else:
+                weights = np.ones(len(self.data_container.nwindows))
 
         for i in range(nm00):
             m00 = m00_array[i]
             logger.info("Looping on m00: %f" % m00)
             measures = \
                 self.calculate_misfit_for_m00(m00)
-            for key_idx, key in enumerate(self.config.energy_keys):
-                cat_val = np.sum(measures[key]**2 * weights)
-                cat_misfits[key][i] = cat_val
-                final_misfits[i] += \
-                    self.config.energy_misfit_coef[key_idx] * cat_val
+
+            if self.config.energy_keys != "None":
+                for key_idx, key in enumerate(self.config.energy_keys):
+                    cat_val = np.sum(measures[key]**2 * weights)
+                    cat_misfits[key][i] = cat_val
+                    final_misfits[i] += \
+                        self.config.energy_misfit_coef[key_idx] * cat_val
 
         # find minimum
         min_idx = final_misfits.argmin()

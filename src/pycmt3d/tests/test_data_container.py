@@ -78,7 +78,8 @@ def test_DataContainer_simple():
     os.chdir(DATA_DIR)
     WINDOW_FILE = os.path.join(DATA_DIR,
                                "flexwin_T006_T030.output.one_station")
-    dcon.add_measurements_from_sac(WINDOW_FILE, tag="T006_T030")
+    dcon.add_measurements_from_sac(WINDOW_FILE, tag="T006_T030",
+                                   file_format="txt")
     assert dcon.npar == 0
     assert len(dcon) == 3
     assert dcon.nwindows == 5

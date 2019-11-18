@@ -396,8 +396,8 @@ class Cmt3D(object):
                                             self.config.taper_type)
 
             var_all += np.sum(0.5 * meta.prov["synt"]["chi"] * meta.weights)
-            var_all_new += np.sum(0.5 * meta.prov["new_synt"]["chi"] *
-                                  meta.weights)
+            var_all_new += np.sum(0.5 * meta.prov["new_synt"]["chi"]
+                                  * meta.weights)
 
         logger.info(
             "Total Variance Reduced from %e to %e ===== %f %%"

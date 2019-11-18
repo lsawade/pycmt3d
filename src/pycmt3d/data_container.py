@@ -17,7 +17,7 @@ import json
 import numpy as np
 from obspy import read
 from . import logger
-from collections import Sequence
+from collections.abc import Sequence
 
 from .constant import PARLIST
 try:
@@ -270,13 +270,12 @@ def load_winfile_json(flexwin_file, initial_weight=1.0):
     trwins = []
     with open(flexwin_file, 'r') as fh:
         content = json.load(fh)
-        for _sta, _channel in content.iteritems():
-            for _chan_win in _channel.itervalues():
+        for _sta, _channel in content.items():
+            for _chan_win in _channel.values():
                 num_wins = len(_chan_win)
                 if num_wins <= 0:
                     continue
-                obsd_id = _chan_win[0]["channel_id"]
-                synt_id = _chan_win[0]["channel_id_2"]
+                channel_id = _chan_win[0]["channel_id"]
                 win_time = np.zeros([num_wins, 2])
                 win_weight = np.zeros(num_wins)
                 for _idx, _win in enumerate(_chan_win):
@@ -286,7 +285,7 @@ def load_winfile_json(flexwin_file, initial_weight=1.0):
                         win_weight[_idx] = _win["initial_weighting"]
                     else:
                         win_weight[_idx] = initial_weight
-                path_dict = {"obsd": obsd_id, "synt": synt_id}
+                path_dict = {"obsd": channel_id, "synt": channel_id}
                 trace_obj = TraceWindow(windows=win_time,
                                         init_weight=win_weight,
                                         path_dict=path_dict)
@@ -400,7 +399,7 @@ class DataContainer(Sequence):
                                   initial_weight=1.0,
                                   external_stationfile=None,
                                   window_time_mode="relative_time",
-                                  file_format="txt"):
+                                  file_format="json"):
         """
         Add measurments(window and seismograms) from the given flexwinfile
         and the data format should be sac
@@ -631,9 +630,11 @@ class DataContainer(Sequence):
 
         obsd_id = trace_obj.path_dict["obsd"]
         synt_id = trace_obj.path_dict["synt"]
+
         trace_obj.datalist['obsd'], trace_obj.tags['obsd'] = \
             self._get_trace_from_asdf(obsd_id, asdf_ds['obsd'],
                                       obsd_tag)
+
         trace_obj.datalist['synt'], trace_obj.tags['synt'] = \
             self._get_trace_from_asdf(synt_id, asdf_ds['synt'],
                                       synt_tag)
@@ -670,8 +671,8 @@ class DataContainer(Sequence):
 
         if len(network) >= 3 or len(station) <= 2:
             raise ValueError("Station string should be 'NW.STA.LOC.COMP'"
-                             "But current is: %s" % station_info +
-                             "You may place the network and station name in"
+                             "But current is: %s" % station_info
+                             + "You may place the network and station name in"
                              "the wrong order")
 
         station_name = network + "_" + station
@@ -710,13 +711,15 @@ class DataContainer(Sequence):
 
         if len(network) >= 3 and len(station) <= 2:
             raise ValueError("Station string should be 'NW.STA.LOC.COMP'"
-                             "But current is: %s" % station_info +
-                             "You may place the network and station name in"
+                             "But current is: %s" % station_info
+                             + "You may place the network and station name in"
                              "the wrong order")
 
-        station_name = network + "_" + station
+        station_name = network + "." + station
+
         # get the tag
         st = getattr(asdf_handle.waveforms, station_name)
+
         tag_list = st.get_waveform_tags()
         if tag is None:
             if len(tag_list) != 1:
@@ -727,8 +730,12 @@ class DataContainer(Sequence):
             tag = tag_list[0]
         else:
             stream = getattr(st, tag)
-        tr = stream.select(network=network, station=station, location=loc,
-                           channel=channel)[0]
+
+        # Get component! Fix for update in pyflex
+        comp = channel[-1]
+        tr = stream.select(network=network, station=station,
+                           component=comp)[0]
+
         return tr.copy(), tag
 
     def write_new_synt_sac(self, outputdir, suffix=None):
@@ -736,7 +743,7 @@ class DataContainer(Sequence):
             os.makedirs(outputdir)
 
         new_synt_dict = self._sort_new_synt()
-        for tag, win_array in new_synt_dict.iteritems():
+        for tag, win_array in new_synt_dict.items():
             for window in win_array:
                 sta = window.station
                 nw = window.network
@@ -751,7 +758,7 @@ class DataContainer(Sequence):
     def write_new_synt_asdf(self, file_prefix):
         new_synt_dict = self._sort_new_synt()
 
-        for tag, win_array in new_synt_dict.iteritems():
+        for tag, win_array in new_synt_dict.items():
             filename = "%s.%s.h5" % (file_prefix, tag)
             if os.path.exists(filename):
                 os.remove(filename)
