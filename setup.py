@@ -82,7 +82,7 @@ setup(
     keywords=['seismology', 'cmt3d', 'moment tensor',
               'centroid moment inversion'],
     install_requires=[
-        "obspy>=1.0.0", "numpy", "future>=0.14.1", "flake8", "geographiclib",
+        "obspy>=1.0.0", "numpy", "future>=0.14.1", "flake8",
         "scipy", "spaceweight", "cartopy"
     ],
     extras_require={
