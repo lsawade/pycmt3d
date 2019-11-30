@@ -9,6 +9,13 @@ This is the python version of [cmt3d](https://github.com/QuLogic/GRD_CMT3D) pack
 * the doc is a bit out-dated. Please refer to the test code for usage:
 https://github.com/wjlei1990/pycmt3d/blob/master/src/pycmt3d/tests/test_cmt3d.py
 
+### Dependencies
+
+```bash
+conda install obspy
+conda install cartopy
+```
+
 ### Install
 ```
 git clone https://github.com/wjlei1990/pycmt3d
