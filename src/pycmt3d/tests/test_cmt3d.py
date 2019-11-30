@@ -17,7 +17,7 @@ import os
 import numpy as np
 import pytest
 import matplotlib.pyplot as plt
-plt.switch_backend('agg')  # NOQA
+# plt.switch_backend('agg')  # NOQA
 from pycmt3d import CMTSource
 from pycmt3d import DataContainer
 from pycmt3d import DefaultWeightConfig, Config
@@ -176,6 +176,7 @@ def test_cmt_bootstrap(cmtsource, tmpdir):
     srcinv = Cmt3D(cmtsource, dcon_two, config)
     srcinv.source_inversion()
     srcinv.plot_summary(str(tmpdir))
+    plt.show(block=True)
 
 
 class TestIO(object):
@@ -192,3 +193,7 @@ class TestIO(object):
     def test_plot_stats_histogram(self, tmpdir, cmtsource):
         srcinv = setup_inversion(cmtsource)
         srcinv.plot_stats_histogram(outputdir=str(tmpdir))
+
+
+if __name__ == "__main__":
+    test_cmt_bootstrap(CMTSource.from_CMTSOLUTION_file(CMTFILE), ".")

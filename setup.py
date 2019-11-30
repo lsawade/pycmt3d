@@ -83,7 +83,7 @@ setup(
               'centroid moment inversion'],
     install_requires=[
         "obspy>=1.0.0", "numpy", "future>=0.14.1", "flake8", "geographiclib",
-        "scipy", "spaceweight"
+        "scipy", "spaceweight", "cartopy"
     ],
     extras_require={
         "docs": ["sphinx"]
