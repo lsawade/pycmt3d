@@ -599,6 +599,7 @@ class PlotInvSummary(object):
         self.plot_win_azi()
         ax = plt.subplot(g[0, 2])
         self.plot_si_bb(ax, self.cmtsource)
+        plt.tight_layout()
         if figurename is None:
             plt.show()
         else:
@@ -628,6 +629,7 @@ class PlotInvSummary(object):
                              "Inversion")
         plt.subplot(g[2, :-1])
         self.plot_table()
+        plt.tight_layout()
         if figurename is None:
             plt.show()
         else:
