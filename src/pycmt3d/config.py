@@ -111,7 +111,8 @@ class Config(object):
                  weight_data=True, weight_config=None,
                  bootstrap=True, bootstrap_repeat=300,
                  bootstrap_subset_ratio=0.4,
-                 taper_type="tukey"):
+                 taper_type="tukey",
+                 dtx=False, dM0=False):
         """
         :param npar: number of parameters to be inverted
         :param dlocation: location perturbation when calculated perturbed
@@ -136,6 +137,10 @@ class Config(object):
         :param bootstrap_subset_ratio: the subset ratio for bootstrap runs
         :param taper_type: the taper type used for taper the seismograms
             in the windows
+        :param dtx: Defines whether time shift is supposed to be
+                    found or not
+        :param dM0: Defines whether scalar Moment change is supposed
+                    to be found or not
         """
 
         _options = [6, 7, 9, 10, 11]
@@ -170,6 +175,8 @@ class Config(object):
         self.station_correction = station_correction
         self.zero_trace = zero_trace
         self.double_couple = double_couple
+        self.dtx = dtx
+        self.dM0 = dM0
 
         if envelope_coef < 0.0 or envelope_coef > 1.0:
             raise ValueError("Envelope coefficient must be within [0, 1]")

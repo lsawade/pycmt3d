@@ -179,6 +179,29 @@ def test_cmt_bootstrap(cmtsource, tmpdir):
     plt.show(block=True)
 
 
+def test_cmt_dt0_dM0(cmtsource, tmpdir):
+    dcon_two = construct_dcon_two()
+
+    weight_config = DefaultWeightConfig(
+        normalize_by_energy=False, normalize_by_category=False,
+        comp_weight={"Z": 1.0, "R": 1.0, "T": 1.0},
+        love_dist_weight=1.0, pnl_dist_weight=1.0,
+        rayleigh_dist_weight=1.0, azi_exp_idx=0.5)
+
+    config = Config(9, dlocation=0.5, ddepth=0.5, dmoment=1.0e22,
+                    zero_trace=True, weight_data=True,
+                    station_correction=True,
+                    weight_config=weight_config,
+                    bootstrap=True, bootstrap_repeat=20,
+                    bootstrap_subset_ratio=0.4,
+                    dtx=True, dM0=True)
+
+    srcinv = Cmt3D(cmtsource, dcon_two, config)
+    srcinv.source_inversion()
+    srcinv.plot_summary(str(tmpdir))
+    plt.show(block=True)
+
+
 class TestIO(object):
     """ test class for IO method """
 
@@ -196,4 +219,4 @@ class TestIO(object):
 
 
 if __name__ == "__main__":
-    test_cmt_bootstrap(CMTSource.from_CMTSOLUTION_file(CMTFILE), ".")
+    test_cmt_dt0_dM0(CMTSource.from_CMTSOLUTION_file(CMTFILE), ".")
