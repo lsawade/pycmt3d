@@ -428,12 +428,11 @@ class Cmt3D(object):
 
             self.mean_M0_change = M0_tot_change / M0_counter
 
+            # Compute scaling factor
+            self.m00_best = 1 + self.mean_M0_change
+
             # Check if magnitude scaling is robust.
             if self.mean_M0_change < 0.1:
-
-                print(self.mean_M0_change)
-                # Compute scaling factor
-                self.m00_best = 1 + self.mean_M0_change
 
                 # Changing the value
                 attrs = ["m_rr", "m_tt", "m_pp", "m_rt", "m_rp", "m_tp"]
