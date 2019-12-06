@@ -294,7 +294,7 @@ class PlotInvSummary(object):
             if azimuth - 360.0 < 0.0001:
                 k = self.nregions - 1
             else:
-                raise ValueError('Error bining azimuth')
+                raise ValueError('Error binning azimuth')
         return k
 
     def calculate_azimuth_bin(self, azimuth_array):
@@ -513,8 +513,8 @@ class PlotInvSummary(object):
         ax.set_xticklabels(ax.get_xticklabels(), fontdict=font_dict)
         ax.set_yticklabels(ax.get_yticklabels(), fontdict=font_dict)
 
-        ax.add_feature(cartopy.feature.LAND, zorder=0, edgecolor='black',
-                       facecolor=(0.85, 0.85, 0.85))
+        ax.add_feature(cartopy.feature.LAND, zorder=0,
+                       edgecolor='black', facecolor=(0.85, 0.85, 0.85))
 
         # Plot stations
         ax.scatter(self.sta_lon, self.sta_lat, 30, color="r", marker="^",
