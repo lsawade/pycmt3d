@@ -244,8 +244,8 @@ class PlotInvSummary(object):
         self.nregions = nregions
 
         self.new_cmtsource = new_cmtsource
-        self.bootstrap_mean = bootstrap_mean
         self.bootstrap_std = bootstrap_std
+        self.bootstrap_mean = bootstrap_mean
         self.var_reduction = var_reduction
 
         if mode.lower() not in ["global", "regional"]:

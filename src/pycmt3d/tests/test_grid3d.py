@@ -17,10 +17,12 @@ import os
 import pytest
 import matplotlib.pyplot as plt
 plt.switch_backend('agg')  # NOQA
+plt.switch_backend('MacOSx')  # NOQA
 from pycmt3d import CMTSource
 from pycmt3d import DataContainer
 from pycmt3d import WeightConfig
 from pycmt3d import Grid3d, Grid3dConfig
+# import numpy.testing as npt
 
 
 # Most generic way to get the data folder path.
@@ -56,7 +58,7 @@ def construct_dcon_two():
     return dcon
 
 
-def test_gri3d_config():
+def test_grid3d_config():
     with pytest.raises(ValueError):
         Grid3dConfig(energy_keys=["power_l2"])
 
@@ -80,6 +82,22 @@ def test_grid3d(cmtsource, weight_config, tmpdir):
     srcinv.search()
 
 
+def test_grid3d_grid(cmtsource, weight_config, tmpdir):
+    dcon_two = construct_dcon_two()
+
+    energy_keys = ["power_l1", "power_l2", "cc_amp", "chi"]
+    config = Grid3dConfig(origin_time_inv=True, time_start=-5.0,
+                          time_end=5.0,
+                          dt_over_delta=20, energy_inv=True,
+                          energy_start=0.8, energy_end=1.2, denergy=0.1,
+                          energy_keys=energy_keys,
+                          energy_misfit_coef=[0.25, 0.25, 0.25, 0.25],
+                          weight_data=True, weight_config=weight_config)
+
+    srcinv = Grid3d(cmtsource, dcon_two, config)
+    srcinv.grid_search()
+
+
 def plot_stats_histogram(cmtsource, weight_config, tmpdir):
     """
     Taken out temperaly because it won't pass the travis test
@@ -87,15 +105,13 @@ def plot_stats_histogram(cmtsource, weight_config, tmpdir):
     dcon_two = construct_dcon_two()
 
     config = Grid3dConfig(origin_time_inv=True, time_start=-5.0, time_end=5.0,
-                          dt_over_delta=1, energy_inv=True,
+                          dt_over_delta=20, energy_inv=True,
                           energy_start=0.8, energy_end=1.2, denergy=0.1,
                           weight_data=True, weight_config=weight_config)
 
     srcinv = Grid3d(cmtsource, dcon_two, config)
     srcinv.search()
-
     srcinv.plot_stats_histogram(outputdir=str(tmpdir))
-    assert 0
 
 
 def test_plot_misfit_summary(cmtsource, weight_config, tmpdir):
@@ -110,3 +126,51 @@ def test_plot_misfit_summary(cmtsource, weight_config, tmpdir):
     srcinv.search()
 
     srcinv.plot_misfit_summary(outputdir=str(tmpdir))
+
+
+def test_grid3_bootstrap():
+    cmtsource = CMTSource.from_CMTSOLUTION_file(CMTFILE)
+
+    weight_config = WeightConfig(normalize_by_energy=False,
+                                 normalize_by_category=False,
+                                 azi_bins=12, azi_exp_idx=0.5)
+
+    dcon_two = construct_dcon_two()
+
+    energy_keys = ["power_l1", "power_l2", "cc_amp", "chi"]
+    config = Grid3dConfig(origin_time_inv=True, time_start=-1.0,
+                          time_end=2.0,
+                          dt_over_delta=10, energy_inv=True,
+                          energy_start=2, energy_end=3, denergy=0.1,
+                          energy_keys=energy_keys,
+                          energy_misfit_coef=[0.25, 0.25, 0.25, 0.25],
+                          weight_data=True, weight_config=weight_config)
+
+    srcinv = Grid3d(cmtsource, dcon_two, config)
+    srcinv.grid_search()
+    srcinv.plot_grid()
+
+
+if __name__ == "__main__":
+    pass
+    # cmtsource = CMTSource.from_CMTSOLUTION_file(CMTFILE)
+    #
+    # weight_config = WeightConfig(normalize_by_energy=False,
+    #                              normalize_by_category=False,
+    #                              azi_bins=12, azi_exp_idx=0.5)
+    #
+    # dcon_two = construct_dcon_two()
+    #
+    # energy_keys = ["power_l1", "power_l2", "cc_amp", "chi"]
+    # config = Grid3dConfig(origin_time_inv=True,  time_start=-1.0,
+    #                       time_end=2.0,
+    #                       dt_over_delta=10, energy_inv=True,
+    #                       energy_start=2, energy_end=3, denergy=0.1,
+    #                       energy_keys=energy_keys,
+    #                       energy_misfit_coef=[0.25, 0.25, 0.25, 0.25],
+    #                       weight_data=True, weight_config=weight_config)
+    #
+    # srcinv = Grid3d(cmtsource, dcon_two, config)
+    # srcinv.grid_search()
+    # print(srcinv.new_cmtsource)
+    # srcinv.plot_grid()

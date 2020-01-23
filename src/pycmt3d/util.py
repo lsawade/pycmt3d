@@ -14,6 +14,8 @@ import json
 import numpy as np
 from scipy import signal
 from obspy.geodetics import locations2degrees
+from obspy.core.trace import Trace
+import scipy
 
 
 def dump_json(content, filename):
@@ -224,3 +226,14 @@ def construct_taper(npts, taper_type="tukey", alpha=0.2):
     else:
         raise ValueError("Taper type not supported: %s" % taper_type)
     return taper
+
+
+def timeshift_trace(tr: Trace, t0: float):
+    """Takes in a seismic trace and shifts it in time using the fft."""
+
+    # Get frequency vector
+    freq = np.fft.fftfreq(len(tr.data), d=tr.stats.delta)
+
+    # Compute timeshifted signal using fft
+    tr.data = np.real(scipy.ifft(scipy.fft(tr.data)
+                                 * np.exp(-1j*2*np.pi*freq*t0)))
