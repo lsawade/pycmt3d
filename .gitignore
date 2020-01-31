@@ -10,3 +10,4 @@ log.txt
 *.png
 *.log
 .DS_Store
+*.pdf
