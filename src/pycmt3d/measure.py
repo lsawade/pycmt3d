@@ -451,6 +451,38 @@ def calculate_variance_on_trace(obsd, synt, win_time, taper_type="tukey"):
            "chi": v1_array/d1_array}
     return var
 
+def calculate_waveform_misfit_on_trace(obsd, synt, win_time,
+                                       taper_type="tukey"):
+    """
+    Calculate the variance reduction on a pair of obsd and
+    synt and windows
+
+    :param obsd: observed data trace
+    :type obsd: :class:`obspy.core.trace.Trace`
+    :param synt: synthetic data trace
+    :type synt: :class:`obspy.core.trace.Trace`
+    :param win_time: [win_start, win_end]
+    :type win_time: :class:`list` or :class:`numpy.array`
+    :return:  L2 waveform misfit on trace windows
+    :rtype: [float, float]
+    """
+    dt = synt.stats.delta
+    win_time = np.array(win_time)
+    num_wins = win_time.shape[0]
+
+    v1_array = np.zeros(num_wins)
+
+    for _win_idx in range(win_time.shape[0]):
+        istart, iend = get_window_idx(win_time[_win_idx], obsd.stats.delta)
+
+        taper = construct_taper(iend - istart, taper_type=taper_type)
+
+        v1_array[_win_idx] = dt * _diff_energy_(obsd.data[istart:iend],
+                                                synt.data[istart:iend],
+                                                taper=taper)
+
+    var = {"v": v1_array}
+    return var
 
 def compute_new_syn_on_trwin(datalist, parlist, dcmt_par, dm):
     """

@@ -17,8 +17,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.patches import Rectangle
+from matplotlib.collections import LineCollection
 from obspy.geodetics import gps2dist_azimuth
 from obspy.imaging.beachball import beach
+import shapefile
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from matplotlib.collections import PatchCollection
+from matplotlib.patches import Polygon
+from matplotlib.lines import Line2D
+import matplotlib.gridspec as gridspec
+import matplotlib.ticker as mticker
+from cartopy.crs import PlateCarree
+from cartopy.crs import Orthographic
+from cartopy.crs import AlbersEqualArea
+import cartopy
+from .geo_data_util import GeoMap
 
 from . import logger
 from .util import get_cmt_par, get_trwin_tag
@@ -236,7 +250,8 @@ class PlotInvSummary(object):
 
     def __init__(self, data_container=None, cmtsource=None, config=None,
                  nregions=12, new_cmtsource=None, bootstrap_mean=None,
-                 bootstrap_std=None, var_reduction=0.0, mode="regional"):
+                 bootstrap_std=None, M0_stats=None, var_reduction=0.0,
+                 mode="regional"):
         self.data_container = data_container
         self.cmtsource = cmtsource
         self.trwins = data_container.trwins
@@ -260,6 +275,8 @@ class PlotInvSummary(object):
         # azimuth in radius unit
         self.sta_theta = []
         self.prepare_array()
+
+        self.M0_stats = M0_stats
 
     def prepare_array(self):
         # station
@@ -381,7 +398,7 @@ class PlotInvSummary(object):
                 std_over_mean[_i] = 0.0
         fontsize = 9
         incre = 0.06
-        pos = 1.00
+        pos = 1.06
         # Moment Tensors
         format1 = "%15.4e  %15.4e  %15.4e  %15.4e  %10.2f%%"
         # CMT/HDR
@@ -476,16 +493,27 @@ class PlotInvSummary(object):
                par_mean[7], par_std[7], std_over_mean[7] * 100)
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        text = "Grid Search Parameters:"
+        pos -= incre
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         text = "CMT:" + format2 % (
                self.cmtsource.time_shift, self.new_cmtsource.time_shift,
-               par_mean[9], par_std[9], std_over_mean[9] * 100)
+               par_mean[9], par_std[9], par_std[9]/par_mean[9] * 100)
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
-        text = "HDR:" + format2 % (
-               self.cmtsource.half_duration, self.new_cmtsource.half_duration,
-               par_mean[10], par_std[10], std_over_mean[10] * 100)
+
+        text = "M0: " + format1 % (
+            self.cmtsource.M0, self.new_cmtsource.M0,
+            self.M0_stats[0], self.M0_stats[1],
+            self.M0_stats[1]/self.M0_stats[0] * 100)
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+
+        # text = "HDR:" + format2 % (
+        #        self.cmtsource.half_duration, self.new_cmtsource.half_duration,
+        #        par_mean[10], par_std[10], std_over_mean[10] * 100)
+        # pos -= incre
+        # plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         plt.axis('off')
 
     def plot_global_map(self):
@@ -628,6 +656,139 @@ class PlotInvSummary(object):
         else:
             plt.savefig(figurename)
 
+    def plot_faults(self):
+        fname = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "data", "faults", "gem_active_faults_harmonized.shp")
+        with shapefile.Reader(fname) as shp:
+            coordinates = []
+            for k, rec in enumerate(shp.shapes()):
+                coordinates.append(
+                    np.array(rec.__geo_interface__['coordinates']))
+
+        faults = [[(lon, lat) for lon, lat in coords] for coords in
+                  coordinates]
+
+        ax = plt.gca()
+        lc = LineCollection(faults, colors=(0, 0, 0), zorder=150)
+        ax.add_collection(lc)
+
+    def plot_mini_map(self):
+
+        ax = plt.gca()
+
+        # Get CMT location
+        cmt_lat = self.cmtsource.latitude
+        cmt_lon = self.cmtsource.longitude
+        new_cmt_lat = self.new_cmtsource.latitude
+        new_cmt_lon = self.new_cmtsource.longitude
+
+        padding = 1
+        minlon = cmt_lon - padding
+        maxlon = cmt_lon + padding
+        minlat = cmt_lat - padding
+        maxlat = cmt_lat + padding
+
+        # Updated parallels..
+        ax.set_xlim([minlon - padding, maxlon + padding])
+        ax.set_ylim([minlat - padding, maxlat + padding])
+        ax.frameon = True
+        ax.outline_patch.set_linewidth(0.75)
+
+        lon_tick = np.arange(np.floor(minlon) - padding, np.ceil(maxlon) + padding,
+                             padding / 2)
+        lat_tick = np.arange(np.floor(minlat) - padding, np.ceil(maxlat) + padding,
+                             padding / 2)
+
+        # Set gridlines. NO LABELS HERE, there is a bug in the gridlines
+        # function around 180deg
+        gl = ax.gridlines(crs=PlateCarree(), draw_labels=True,
+                          linewidth=1, color='lightgray', alpha=0.5,
+                          linestyle='-')
+        gl.xlabels_top = False
+        gl.ylabels_left = False
+        gl.xlines = True
+        gl.xlocator = mticker.FixedLocator(lon_tick)
+        gl.ylocator = mticker.FixedLocator(lat_tick)
+        gl.xlabel_style = {"rotation": 45., "ha": "right"}
+
+        # ax.outline_patch.set_visible(False)
+
+        # Change fontsize
+        fontsize = 12
+        font_dict = {"fontsize": fontsize,
+                     "weight": "bold"}
+        ax.set_xticklabels(ax.get_xticklabels(), fontdict=font_dict)
+        ax.set_yticklabels(ax.get_yticklabels(), fontdict=font_dict)
+
+        # ax.add_feature(cartopy.feature.COASTLINE, lw=2,
+        ax.coastlines(color='black', lw=2, zorder=200)
+
+        # Plot stations
+        ax.scatter(self.sta_lon, self.sta_lat, 30, color="r", marker="^",
+                   edgecolor="k", linewidth='0.3', zorder=3)
+
+        width_beach = min((maxlon + 2 * padding - minlon) / (5 * padding),
+                          (maxlat + 2 * padding - minlat) / (5 * padding))
+
+        focmecs = get_cmt_par(self.cmtsource)[:6]
+        bb = beach(focmecs, xy=(cmt_lon, cmt_lat),
+                   width=width_beach, linewidth=1, alpha=1.0, zorder=250)
+        ax.add_collection(bb)
+        new_focmecs = get_cmt_par(self.new_cmtsource)[:6]
+        new_bb = beach(new_focmecs, facecolor='r',
+                       xy=(new_cmt_lon, new_cmt_lat), width=width_beach,
+                       linewidth=1, alpha=1.0, zorder=250)
+        ax.add_collection(new_bb)
+
+
+    def plot_geology(self):
+        """Reads json and plots geological features"""
+
+        fname = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "data", "geology", "geology.json")
+        geomap = GeoMap.load_json(fname)
+        ax = plt.gca()
+
+        # Get discrete colormap
+        self.geo_cmap = cm.get_cmap('gist_ncar', geomap.ndescr)
+
+        # Translate the colors to a colormap
+        self.colordict = dict()
+
+        for k, descriptions in enumerate(sorted(list(geomap.descriptions))):
+            self.colordict[descriptions] = k
+
+        patches = []
+        colors = []
+        for member in geomap.members:
+
+            for poly in member.coordinates:
+                patches.append(Polygon(np.fliplr(poly), joinstyle="round",
+                                       fill=True, edgecolor=None))
+                colors.append(self.colordict[member.description])
+
+        p = PatchCollection(patches, cmap=self.geo_cmap, alpha=0.4, zorder=100)
+        p.set_array(np.array(colors))
+        ax.add_collection(p)
+
+    def plot_geology_legend(self):
+
+        plt.figure()
+        plt.figure(figsize=(15, 8), facecolor='w', edgecolor='k')
+        ax = plt.axes()
+        circs = []
+        labels = []
+
+        for key, value in self.colordict.items():
+            circs.append(
+                Line2D([0], [0], linestyle="none", marker="s", alpha=0.4,
+                       markersize=10, markerfacecolor=self.geo_cmap(value)))
+            labels.append(key)
+
+        ax.legend(circs, labels, numpoints=1,
+                   loc="best", ncol=2, fontsize=8, frameon=False)
+        ax.axis('off')
+
     def plot_inversion_summary(self, figurename=None):
         """
         Plot the dataset and the inversion result.
@@ -635,9 +796,10 @@ class PlotInvSummary(object):
         if self.new_cmtsource is None:
             raise ValueError("No new cmtsource...Can't plot summary")
 
-        plt.figure(figsize=(10, 10.5), facecolor='w', edgecolor='k')
+        fig = plt.figure(figsize=(10, 10.5), facecolor='w', edgecolor='k',
+                         tight_layout=True)
         g = gridspec.GridSpec(3, 3)
-        plt.subplot(g[0, :-1], projection=PlateCarree(0.0))
+        plt.subplot(g[0, :-1], projection=PlateCarree())
         self.plot_global_map()
         plt.subplot(g[1, 0],  polar=True)
         self.plot_sta_dist_azi()
@@ -645,14 +807,19 @@ class PlotInvSummary(object):
         self.plot_sta_azi()
         plt.subplot(g[1, 2], polar=True)
         self.plot_win_azi()
-        ax = plt.subplot(g[0, 2])
-        self.plot_si_bb(ax, self.cmtsource)
+        ax = plt.subplot(g[0, 2], projection=PlateCarree())
+        # ax.set_global()
+        self.plot_mini_map()
+        self.plot_geology()
+        self.plot_faults()
+        # self.plot_si_bb(ax, self.cmtsource)
         ax = plt.subplot(g[2, 2])
         self.plot_si_bb_comp(ax, self.new_cmtsource, self.cmtsource,
                              "Inversion")
         plt.subplot(g[2, :-1])
         self.plot_table()
-        plt.tight_layout(w_pad=0, h_pad=-0.2)
+        # fig.canvas.draw()
+        # plt.tight_layout()
         if figurename is None:
             plt.show()
         else:

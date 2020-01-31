@@ -20,6 +20,7 @@ from . import logger
 from .weight import Weight
 from .data_container import MetaInfo
 from .measure import calculate_variance_on_trace
+from .measure import calculate_waveform_misfit_on_trace
 from .plot_util import PlotStats
 from .util import timeshift_trace
 from .util import random_select
@@ -119,6 +120,10 @@ class Grid3d(object):
         self.misfit_grid = None
         self.cat_misfit_grid = None
 
+        self.var_all = None
+        self.var_all_new = None
+        self.var_reduction = None
+
     def setup_window_weight(self):
         """
         Use Window information to setup weight for each window.
@@ -183,6 +188,9 @@ class Grid3d(object):
         # Output new data
         self.prepare_new_cmtsource()
         self.prepare_new_synthetic()
+
+        # Calculate variance reduction
+        self.calculate_variance()
 
     def prepare_new_cmtsource(self):
         newcmt = deepcopy(self.cmtsource)
@@ -312,12 +320,14 @@ class Grid3d(object):
         return measures
 
     def calculate_misfit_on_grid(self, m00, t0):
-        """Computes misfit for amplitude scaling as well as timeshift."""
+        """Computes amplitude and cross correlation misfit for moment scaling
+        as well as timeshift."""
 
         power_l1s = []
         power_l2s = []
         cc_amps = []
         chis = []
+        misfits = []
 
         for trwin in self.data_container:
             obsd = trwin.datalist["obsd"]
@@ -337,27 +347,14 @@ class Grid3d(object):
 
             # Scale amplitude
             synt.data *= m00
-            measures = \
-                calculate_variance_on_trace(obsd, synt, trwin.windows)
-            power_l1s.extend(measures["power_l1"])
-            power_l2s.extend(measures["power_l2"])
-            cc_amps.extend(measures["cc_amp"])
-            chis.extend(measures["chi"])
+            measures = calculate_waveform_misfit_on_trace(obsd, synt,
+                                                          trwin.windows)
+            misfits.extend(measures["v"])
 
-        measures = {"power_l1": np.array(power_l1s),
-                    "power_l2": np.array(power_l2s),
-                    "cc_amp": np.array(cc_amps),
-                    "chi": np.array(chis)}
+        measures = {"energy": np.array(misfits)}
+
         return measures
 
-    def get_data_subset(self, subset_array):
-
-        new_datalist = []
-        for i, nsub in enumerate(subset_array):
-            for j in range(nsub):
-                new_datalist.append(self.data_container[i])
-
-        return new_datalist
 
     def calculate_misfit_on_subset(self, m00, t0, subset):
         """Computes misfit for amplitude scaling as well as timeshift."""
@@ -366,6 +363,7 @@ class Grid3d(object):
         power_l2s = []
         cc_amps = []
         chis = []
+        misfits = []
 
         for k, trwin in enumerate(self.data_container):
             if subset[k] != 0:
@@ -386,17 +384,12 @@ class Grid3d(object):
 
                 # Scale amplitude
                 synt.data *= m00
-                measures = \
-                    calculate_variance_on_trace(obsd, synt, trwin.windows)
-                power_l1s.extend(subset[k] * measures["power_l1"])
-                power_l2s.extend(subset[k] * measures["power_l2"])
-                cc_amps.extend(subset[k] * measures["cc_amp"])
-                chis.extend(subset[k] * measures["chi"])
+                measures = calculate_waveform_misfit_on_trace(obsd, synt,
+                                                              trwin.windows)
+                misfits.extend(measures["v"])
 
-        measures = {"power_l1": np.array(power_l1s),
-                    "power_l2": np.array(power_l2s),
-                    "cc_amp": np.array(cc_amps),
-                    "chi": np.array(chis)}
+            measures = {"energy": np.array(misfits)}
+
         return measures
 
     def grid_search_taM(self):
@@ -455,12 +448,15 @@ class Grid3d(object):
                 m00 = self.m00_array[j]
                 measures = self.calculate_misfit_on_grid(m00, t00)
 
-                if self.config.energy_keys != "None":
-                    for key_idx, key in enumerate(self.config.energy_keys):
-                        cat_val = np.sum(measures[key] ** 2 * weights)
-                        cat_misfits[key][i, j] = cat_val
-                        final_misfits[i, j] += \
-                            self.config.energy_misfit_coef[key_idx] * cat_val
+                final_misfits[i, j] = np.sum(measures['energy']
+                                             * weights)
+                # if self.config.energy_keys != "None":
+                #     for key_idx, key in enumerate(self.config.energy_keys):
+                #         cat_val = np.sum(measures[key] ** 2 * weights)
+                #         cat_misfits[key][i, j] = cat_val
+                #         final_misfits[i, j] += \
+                #             self.config.energy_misfit_coef[key_idx] * cat_val
+
         logger.info("Done!")
         # find minimum
         min_idx = final_misfits.argmin()
@@ -484,7 +480,7 @@ class Grid3d(object):
         self.t00_best = t00_best
 
         self.misfit_grid = final_misfits
-        self.cat_misfit_grid = cat_misfits
+        # self.cat_misfit_grid = cat_misfits
 
     def get_bootstrap_weights(self, weights, random_array):
         """ Uses the random_array to get the weights corresponding to the
@@ -586,14 +582,15 @@ class Grid3d(object):
                     m00 = m00_array[j]
                     measures = self.calculate_misfit_on_subset(m00, t00,
                                                                random_array)
-
-                    if self.config.energy_keys != "None":
-                        for key_idx, key in enumerate(self.config.energy_keys):
-                            cat_val = np.sum(measures[key] ** 2 * new_weights)
-                            cat_misfits[key][k, i, j] = cat_val
-                            final_misfits[k, i, j] += \
-                                self.config.energy_misfit_coef[key_idx] \
-                                * cat_val
+                    final_misfits[k, i, j] = np.sum(measures['energy']
+                                                    * new_weights)
+                    # if self.config.energy_keys != "None":
+                    #     for key_idx, key in enumerate(self.config.energy_keys):
+                    #         cat_val = np.sum(measures[key] ** 2 * new_weights)
+                    #         cat_misfits[key][k, i, j] = cat_val
+                    #         final_misfits[k, i, j] += \
+                    #             self.config.energy_misfit_coef[key_idx] \
+                    #             * cat_val
 
             # find minimum
             min_idx = final_misfits[k, :, :].argmin()
@@ -623,7 +620,8 @@ class Grid3d(object):
         self.m00_mean = np.mean(m00_best_array) * self.cmtsource.M0
         self.t00_std = np.std(t00_best_array)
         self.t00_var = np.var(t00_best_array)
-        self.t00_mean = np.mean(t00_best_array)
+        self.t00_mean = np.mean(t00_best_array) + self.cmtsource.time_shift
+
 
         logger.info("t0 stats: Mean: %2.2f s - STD: %2.2f s - Var: %3.4f "
                     "s**2" % (self.t00_mean, self.t00_std, self.t00_var))
@@ -696,6 +694,40 @@ class Grid3d(object):
                                                     suffix))
         logger.info("New cmtsource file: %s" % fn)
         self.new_cmtsource.write_CMTSOLUTION_file(fn)
+
+    def calculate_variance(self):
+        """ Computes the variance reduction"""
+        var_all = 0.0
+        var_all_new = 0.0
+
+        # calculate metrics for each trwin
+        for meta, trwin in zip(self.metas, self.data_container.trwins):
+            obsd = trwin.datalist['obsd']
+            synt = trwin.datalist['synt']
+
+            # calculate old variance metrics
+            meta.prov["synt"] = \
+                calculate_variance_on_trace(obsd, synt, trwin.windows,
+                                            self.config.taper_type)
+
+            new_synt = trwin.datalist['new_synt']
+            # calculate new variance metrics
+            meta.prov["new_synt"] = \
+                calculate_variance_on_trace(obsd, new_synt, trwin.windows,
+                                            self.config.taper_type)
+
+            var_all += np.sum(0.5 * meta.prov["synt"]["chi"] * meta.weights)
+            var_all_new += np.sum(0.5 * meta.prov["new_synt"]["chi"]
+                                  * meta.weights)
+
+        logger.info(
+            "Total Variance Reduced from %e to %e ===== %f %%"
+            % (var_all, var_all_new, (var_all - var_all_new) / var_all * 100))
+        logger.info("*" * 20)
+
+        self.var_all = var_all
+        self.var_all_new = var_all_new
+        self.var_reduction = (var_all - var_all_new) / var_all
 
     def plot_stats_histogram(self, outputdir=".", figure_format="pdf"):
         """
@@ -779,7 +811,8 @@ class Grid3d(object):
 
         tt, mm = np.meshgrid(self.t00_array, self.m00_array)
         plt.figure()
-        ctf = plt.contourf(tt, mm * self.new_cmtsource.M0, self.misfit_grid.T)
+        ctf = plt.contourf(tt, mm * self.new_cmtsource.M0, self.misfit_grid.T,
+                           cmap='Greys')
         plt.plot(self.t00_array[min_t_idx], self.m00_array[min_m_idx]
                  * self.new_cmtsource.M0, "r*", markeredgecolor='k',
                  markersize=20, label="Min Misfit")
