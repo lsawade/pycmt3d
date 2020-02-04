@@ -35,6 +35,7 @@ def sample_xml(filename, opts):
     with open(filename, opts) as xml:
         return xml.read()
 
+
 def print_xml_structure(filename):
     """Prints structure of a given XML file."""
 
@@ -44,6 +45,7 @@ def print_xml_structure(filename):
     tree = etree.ElementTree(root)
 
     print_substructure(root, tree)
+
 
 def print_substructure(root, tree):
     """Prints tree structure"""
@@ -56,9 +58,11 @@ def print_substructure(root, tree):
         tag_name = ' ' * (spaces[' '] - 4) + tag_name
         print(tag_name)
 
+
 def print_full_tree(tree):
     """Prints XML tree structure."""
-    print(tree.tostring(e, pretty_print=True))
+    print(tree.tostring(tree, pretty_print=True))
+
 
 def download_wfs():
 
@@ -78,6 +82,7 @@ def download_wfs():
         out = open(typename[3:]+'.gml', 'wb')
         out.write(response.read())
         out.close()
+
 
 class Member(object):
     def __init__(self, coordinates: list = None, bbox: np.ndarray = None,
@@ -131,8 +136,8 @@ class Member(object):
 
 class GeoMap(object):
 
-    def __init__(self, members: list=None, descriptions: set=None,
-                 lithologies: set=None, stratigraphies: set=None):
+    def __init__(self, members: list = None, descriptions: set = None,
+                 lithologies: set = None, stratigraphies: set = None):
         """
         Contains all features to of a geological map loaded from an xml.
 
@@ -198,7 +203,7 @@ class GeoMap(object):
         """Returns the number of different descriptions in Geomap"""
         return len(self.descriptions)
 
-    def save_json(self, outfileName: str="outfile.json"):
+    def save_json(self, outfileName: str = "outfile.json"):
         """
         Saves the dictionary d to the outfileName file.
         :param d: dictionary
@@ -255,8 +260,8 @@ class GeoMap(object):
         # Set namespaces
         xmlns_ms = ns["ms"]
         xmlns_gml = ns["gml"]
-        xmlns_wfs = ns["wfs"]
-        xmlns_xsi = ns["xsi"]
+        # xmlns_wfs = ns["wfs"]
+        # xmlns_xsi = ns["xsi"]
 
         members = []
         counter = 0
@@ -279,12 +284,14 @@ class GeoMap(object):
                         counter = 0
                         member.coordinates = []
 
-                    # Converting the text elements in the member into float arrays
+                    # Converting the text elements in the member into
+                    # float arrays
                     member.coordinates.append(np.array([
                         float(x) for x in subelement.text.strip().split(' ')]))
                     member.coordinates[counter] = \
                         member.coordinates[counter] \
-                        .reshape((int(member.coordinates[counter].size / 2), 2))
+                        .reshape((int(member.coordinates[counter].size / 2),
+                                  2))
                     counter += 1
 
                 elif "lowerCorner" in subelement.tag:
@@ -337,16 +344,17 @@ class GeoMap(object):
         readme += "  The geomap dictionary contains information about the \n" \
                   "  lithology, stratigraphy, and a combining descriptor,\n" \
                   "  which can be used as legends. The main convenience of\n" \
-                  "  this format is the included list of polygons which each\n" \
-                  "  contain the aforementioned descriptors, lithological, and\n" \
-                  "  stratigraphical information needed to be used as legends.\n" \
-                  "  Each Polygon contains info for one single geological\n" \
-                  "  region/feature.\n\n" \
-                  "  Features included in this map:\n\n"
+                  "  this format is the included list of polygons which \n" \
+                  "  each contain the aforementioned descriptors, \n" \
+                  "  lithological, and stratigraphical information needed \n" \
+                  "  to be used as legends Each Polygon contains info for\n" \
+                  "  one single geological region/feature.\n\n" \
+                  "  Features included in his map:\n\n"
         for description in self.descriptions:
             readme += "  o  %s\n" % description
 
         return readme
+
 
 def get_xml_namespaces(filename: str):
     """
@@ -372,7 +380,6 @@ if __name__ == "__main__":
         os.path.dirname(os.path.abspath(__file__)),
         "data", "geology", "geology.json")
     geomap = GeoMap.load_json(fname)
-
 
     fig = plt.figure(figsize=(10, 10), facecolor='w', edgecolor='k')
     g = gridspec.GridSpec(5, 2)

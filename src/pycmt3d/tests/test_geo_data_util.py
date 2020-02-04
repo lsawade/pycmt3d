@@ -22,9 +22,8 @@ import matplotlib.pyplot as plt
 plt.switch_backend('agg')  # NOQA
 from pycmt3d import CMTSource
 from pycmt3d import DataContainer
-from pycmt3d import DefaultWeightConfig, Config
+from pycmt3d import DefaultWeightConfig
 from pycmt3d.constant import PARLIST
-from pycmt3d import Cmt3D
 from pycmt3d.geo_data_util import Member
 from pycmt3d.geo_data_util import GeoMap
 
@@ -144,6 +143,7 @@ def test_member_from_dict():
     assert stratigraphy == member.stratigraphy
     assert description == member.description
 
+
 def test_GeoMap():
     """Test GeoMap class"""
 
@@ -151,6 +151,3 @@ def test_GeoMap():
     geomap = GeoMap.from_xml(geoxml)
 
     geomap.save_json(os.path.join(GEO_DATA_DIR, "test.json"))
-
-
-

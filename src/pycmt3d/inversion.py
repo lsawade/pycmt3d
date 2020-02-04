@@ -17,13 +17,13 @@ import copy
 import os
 
 from . import logger
-from .config import Config
 from .cmt3d import Cmt3D
 from .source import CMTSource
-from .grid3d import Grid3d, Grid3dConfig
+from .grid3d import Grid3d
 from .data_container import DataContainer
 from .plot_util import PlotInvSummary
 import matplotlib.pyplot as plt
+
 
 class Inversion(object):
 
@@ -108,8 +108,6 @@ class Inversion(object):
             var_reduction=self.grid3d.var_reduction,
             mode=mode)
         plot_util.plot_inversion_summary(figurename=figurename)
-
-
 
     def plot_grid(self):
         self.grid3d.plot_grid()

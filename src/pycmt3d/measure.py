@@ -451,6 +451,7 @@ def calculate_variance_on_trace(obsd, synt, win_time, taper_type="tukey"):
            "chi": v1_array/d1_array}
     return var
 
+
 def calculate_waveform_misfit_on_trace(obsd, synt, win_time,
                                        taper_type="tukey"):
     """
@@ -483,6 +484,7 @@ def calculate_waveform_misfit_on_trace(obsd, synt, win_time,
 
     var = {"v": v1_array}
     return var
+
 
 def compute_new_syn_on_trwin(datalist, parlist, dcmt_par, dm):
     """

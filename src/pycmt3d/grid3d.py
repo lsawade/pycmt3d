@@ -323,10 +323,6 @@ class Grid3d(object):
         """Computes amplitude and cross correlation misfit for moment scaling
         as well as timeshift."""
 
-        power_l1s = []
-        power_l2s = []
-        cc_amps = []
-        chis = []
         misfits = []
 
         for trwin in self.data_container:
@@ -355,14 +351,9 @@ class Grid3d(object):
 
         return measures
 
-
     def calculate_misfit_on_subset(self, m00, t0, subset):
         """Computes misfit for amplitude scaling as well as timeshift."""
 
-        power_l1s = []
-        power_l2s = []
-        cc_amps = []
-        chis = []
         misfits = []
 
         for k, trwin in enumerate(self.data_container):
@@ -450,12 +441,6 @@ class Grid3d(object):
 
                 final_misfits[i, j] = np.sum(measures['energy']
                                              * weights)
-                # if self.config.energy_keys != "None":
-                #     for key_idx, key in enumerate(self.config.energy_keys):
-                #         cat_val = np.sum(measures[key] ** 2 * weights)
-                #         cat_misfits[key][i, j] = cat_val
-                #         final_misfits[i, j] += \
-                #             self.config.energy_misfit_coef[key_idx] * cat_val
 
         logger.info("Done!")
         # find minimum
@@ -584,13 +569,6 @@ class Grid3d(object):
                                                                random_array)
                     final_misfits[k, i, j] = np.sum(measures['energy']
                                                     * new_weights)
-                    # if self.config.energy_keys != "None":
-                    #     for key_idx, key in enumerate(self.config.energy_keys):
-                    #         cat_val = np.sum(measures[key] ** 2 * new_weights)
-                    #         cat_misfits[key][k, i, j] = cat_val
-                    #         final_misfits[k, i, j] += \
-                    #             self.config.energy_misfit_coef[key_idx] \
-                    #             * cat_val
 
             # find minimum
             min_idx = final_misfits[k, :, :].argmin()
@@ -622,13 +600,13 @@ class Grid3d(object):
         self.t00_var = np.var(t00_best_array)
         self.t00_mean = np.mean(t00_best_array) + self.cmtsource.time_shift
 
-
         logger.info("t0 stats: Mean: %2.2f s - STD: %2.2f s - Var: %3.4f "
                     "s**2" % (self.t00_mean, self.t00_std, self.t00_var))
         logger.info("M0 stats: Mean: %4e - STD: %4e s - Var: %4e"
                     "s**2" % (self.m00_mean, self.m00_std, self.m00_var))
 
     def grid_search_energy(self):
+        """Searches for Energy only """
 
         logger.info('Energy grid Search')
 

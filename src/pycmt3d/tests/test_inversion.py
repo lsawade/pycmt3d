@@ -16,19 +16,14 @@ Last Update: January 2020
 from __future__ import print_function, division
 import inspect
 import os
-import numpy as np
 import pytest
 import matplotlib.pyplot as plt
-# plt.switch_backend('agg')  # NOQA
-from pycmt3d import CMTSource
-from pycmt3d import DataContainer
+plt.switch_backend('agg')  # NOQA
 from pycmt3d import DefaultWeightConfig, Config
 from pycmt3d.constant import PARLIST
-from pycmt3d import Cmt3D
 from pycmt3d import CMTSource
 from pycmt3d import DataContainer
-from pycmt3d import WeightConfig
-from pycmt3d import Grid3d, Grid3dConfig
+from pycmt3d import Grid3dConfig
 from pycmt3d import Inversion
 
 
@@ -92,11 +87,11 @@ def test_inversion(cmtsource, tmpdir):
         rayleigh_dist_weight=1.0, azi_exp_idx=0.5)
 
     cmt3d_config = Config(9, dlocation=0.5, ddepth=0.5, dmoment=1.0e22,
-                    zero_trace=True, weight_data=True,
-                    station_correction=True,
-                    weight_config=weight_config,
-                    bootstrap=True, bootstrap_repeat=20,
-                    bootstrap_subset_ratio=0.4)
+                          zero_trace=True, weight_data=True,
+                          station_correction=True,
+                          weight_config=weight_config,
+                          bootstrap=True, bootstrap_repeat=20,
+                          bootstrap_subset_ratio=0.4)
 
     energy_keys = ["power_l1", "power_l2", "cc_amp", "chi"]
     grid3d_config = Grid3dConfig(origin_time_inv=True, time_start=-5,

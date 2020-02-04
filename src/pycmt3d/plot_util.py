@@ -21,26 +21,19 @@ from matplotlib.collections import LineCollection
 from obspy.geodetics import gps2dist_azimuth
 from obspy.imaging.beachball import beach
 import shapefile
-import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon
 from matplotlib.lines import Line2D
-import matplotlib.gridspec as gridspec
 import matplotlib.ticker as mticker
 from cartopy.crs import PlateCarree
-from cartopy.crs import Orthographic
-from cartopy.crs import AlbersEqualArea
 import cartopy
+
 from .geo_data_util import GeoMap
 
 from . import logger
 from .util import get_cmt_par, get_trwin_tag
 from .measure import _envelope
-
-# Import cartopy stuff
-from cartopy.crs import PlateCarree
-import cartopy
 
 # earth half circle
 EARTH_HC, _, _ = gps2dist_azimuth(0, 0, 0, 180)
@@ -502,15 +495,17 @@ class PlotInvSummary(object):
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
-        text = "M0: " + format1 % (
-            self.cmtsource.M0, self.new_cmtsource.M0,
-            self.M0_stats[0], self.M0_stats[1],
-            self.M0_stats[1]/self.M0_stats[0] * 100)
-        pos -= incre
-        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        if self.M0_stats is not None:
+            text = "M0: " + format1 % (
+                self.cmtsource.M0, self.new_cmtsource.M0,
+                self.M0_stats[0], self.M0_stats[1],
+                self.M0_stats[1]/self.M0_stats[0] * 100)
+            pos -= incre
+            plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
         # text = "HDR:" + format2 % (
-        #        self.cmtsource.half_duration, self.new_cmtsource.half_duration,
+        #        self.cmtsource.half_duration,
+        #        self.new_cmtsource.half_duration,
         #        par_mean[10], par_std[10], std_over_mean[10] * 100)
         # pos -= incre
         # plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
@@ -658,7 +653,8 @@ class PlotInvSummary(object):
 
     def plot_faults(self):
         fname = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             "data", "faults", "gem_active_faults_harmonized.shp")
+                             "data", "faults",
+                             "gem_active_faults_harmonized.shp")
         with shapefile.Reader(fname) as shp:
             coordinates = []
             for k, rec in enumerate(shp.shapes()):
@@ -694,9 +690,11 @@ class PlotInvSummary(object):
         ax.frameon = True
         ax.outline_patch.set_linewidth(0.75)
 
-        lon_tick = np.arange(np.floor(minlon) - padding, np.ceil(maxlon) + padding,
+        lon_tick = np.arange(np.floor(minlon) - padding,
+                             np.ceil(maxlon) + padding,
                              padding / 2)
-        lat_tick = np.arange(np.floor(minlat) - padding, np.ceil(maxlat) + padding,
+        lat_tick = np.arange(np.floor(minlat) - padding,
+                             np.ceil(maxlat) + padding,
                              padding / 2)
 
         # Set gridlines. NO LABELS HERE, there is a bug in the gridlines
@@ -739,7 +737,6 @@ class PlotInvSummary(object):
                        xy=(new_cmt_lon, new_cmt_lat), width=width_beach,
                        linewidth=1, alpha=1.0, zorder=250)
         ax.add_collection(new_bb)
-
 
     def plot_geology(self):
         """Reads json and plots geological features"""
@@ -785,8 +782,8 @@ class PlotInvSummary(object):
                        markersize=10, markerfacecolor=self.geo_cmap(value)))
             labels.append(key)
 
-        ax.legend(circs, labels, numpoints=1,
-                   loc="best", ncol=2, fontsize=8, frameon=False)
+        ax.legend(circs, labels, numpoints=1, loc="best",
+                  ncol=2, fontsize=8, frameon=False)
         ax.axis('off')
 
     def plot_inversion_summary(self, figurename=None):
@@ -796,8 +793,8 @@ class PlotInvSummary(object):
         if self.new_cmtsource is None:
             raise ValueError("No new cmtsource...Can't plot summary")
 
-        fig = plt.figure(figsize=(10, 10.5), facecolor='w', edgecolor='k',
-                         tight_layout=True)
+        plt.figure(figsize=(10, 10.5), facecolor='w', edgecolor='k',
+                   tight_layout=True)
         g = gridspec.GridSpec(3, 3)
         plt.subplot(g[0, :-1], projection=PlateCarree())
         self.plot_global_map()
