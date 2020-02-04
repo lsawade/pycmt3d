@@ -226,6 +226,7 @@ class Grid3d(object):
     def prepare_new_synthetic(self):
         logger.info("Reconstruct new synthetic seismograms...")
         for trwin in self.data_container:
+<<<<<<< HEAD
             if self.config.use_new:
                 if "new_synt" not in trwin.datalist:
                     raise ValueError("new synt is not in trwin(%s) "
@@ -236,6 +237,12 @@ class Grid3d(object):
             else:
                 new_synt = trwin.datalist["synt"].copy()
 
+=======
+            if "new_synt" in trwin.datalist:
+                new_synt = trwin.datalist["new_synt"].copy()
+            else:
+                new_synt = trwin.datalist["synt"].copy()
+>>>>>>> added functionanlity to inversion.py
             if self.config.origin_time_inv:
                 new_synt.stats.starttime += self.t00_best
             if self.config.energy_inv:

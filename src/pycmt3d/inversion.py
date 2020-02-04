@@ -38,6 +38,7 @@ class Inversion(object):
                  data_container: DataContainer,
                  cmt3d_config: Config,
                  mt_config=None):
+
         """Class to run full inversion and generate output.
 
         :param cmt3d: cmt3d inversion class for the 6 moment tensor parameters
@@ -71,6 +72,7 @@ class Inversion(object):
             self.G = Grid3d(self.cmt3d.new_cmtsource, self.data_container,
                                 self.mt_config)
             self.G.grid_search()
+
 
             self.new_cmtsource = copy.deepcopy(self.G.new_cmtsource)
 
