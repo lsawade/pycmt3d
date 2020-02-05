@@ -244,7 +244,7 @@ class PlotInvSummary(object):
     def __init__(self, data_container=None, cmtsource=None, config=None,
                  nregions=12, new_cmtsource=None, bootstrap_mean=None,
                  bootstrap_std=None, M0_stats=None, var_reduction=0.0,
-                 mode="regional"):
+                 mode="regional", grid3d=None):
         self.data_container = data_container
         self.cmtsource = cmtsource
         self.trwins = data_container.trwins
@@ -270,6 +270,7 @@ class PlotInvSummary(object):
         self.prepare_array()
 
         self.M0_stats = M0_stats
+        self.grid3d = grid3d
 
     def prepare_array(self):
         # station
@@ -798,8 +799,13 @@ class PlotInvSummary(object):
         g = gridspec.GridSpec(3, 3)
         plt.subplot(g[0, :-1], projection=PlateCarree())
         self.plot_global_map()
-        plt.subplot(g[1, 0],  polar=True)
-        self.plot_sta_dist_azi()
+        if self.grid3d is None:
+            plt.subplot(g[1, 0],  polar=True)
+            self.plot_sta_dist_azi()
+        else:
+            plt.subplot(g[1, 0])
+            self.grid3d.plot_grid()
+
         plt.subplot(g[1, 1], polar=True)
         self.plot_sta_azi()
         plt.subplot(g[1, 2], polar=True)

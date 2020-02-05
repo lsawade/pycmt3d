@@ -148,7 +148,7 @@ def test_grid3_bootstrap():
 
     srcinv = Grid3d(cmtsource, dcon_two, config)
     srcinv.grid_search()
-    srcinv.plot_grid()
+    srcinv.plot_grid(figurename='show')
 
 
 if __name__ == "__main__":

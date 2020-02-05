@@ -14,7 +14,12 @@ import os
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
+plt.switch_backend('agg')
 from copy import deepcopy
+
+import multiprocessing
+from joblib import delayed
+from joblib import Parallel
 
 from . import logger
 from .weight import Weight
@@ -319,9 +324,11 @@ class Grid3d(object):
                     "chi": np.array(chis)}
         return measures
 
-    def calculate_misfit_on_grid(self, m00, t0):
+    def calculate_misfit_on_grid(self, m00, t0, weights, counter, N):
         """Computes amplitude and cross correlation misfit for moment scaling
         as well as timeshift."""
+
+        logger.info("%d/%d" % (counter, N))
 
         misfits = []
 
@@ -347,11 +354,10 @@ class Grid3d(object):
                                                           trwin.windows)
             misfits.extend(measures["v"])
 
-        measures = {"energy": np.array(misfits)}
+        misfit = np.sum(np.array(misfits) * weights)
+        return misfit
 
-        return measures
-
-    def calculate_misfit_on_subset(self, m00, t0, subset):
+    def calculate_misfit_on_subset(self, m00, t0, subset, weights):
         """Computes misfit for amplitude scaling as well as timeshift."""
 
         misfits = []
@@ -379,9 +385,12 @@ class Grid3d(object):
                                                               trwin.windows)
                 misfits.extend(measures["v"])
 
-            measures = {"energy": np.array(misfits)}
+            new_weights = self.get_bootstrap_weights(weights,
+                                                     subset)
 
-        return measures
+            misfit = np.sum(np.array(misfits)*new_weights)
+
+        return misfit
 
     def grid_search_taM(self):
         """Grid search over time and Magnitude."""
@@ -432,15 +441,32 @@ class Grid3d(object):
             else:
                 weights = np.ones(len(self.data_container.nwindows))
 
+        N = nt00*nm00
         logger.info("Looping ....")
-        for i in range(nt00):
-            for j in range(nm00):
-                t00 = self.t00_array[i]
-                m00 = self.m00_array[j]
-                measures = self.calculate_misfit_on_grid(m00, t00)
+        logger.info("Number of iterations: %d" % N)
+        counter = 0
+        num_cores = multiprocessing.cpu_count()
+        logger.info("Number of cores: %d" % num_cores)
+        if num_cores == 1:
+            for i in range(nt00):
+                for j in range(nm00):
+                    counter += 1
+                    t00 = self.t00_array[i]
+                    m00 = self.m00_array[j]
 
-                final_misfits[i, j] = np.sum(measures['energy']
-                                             * weights)
+                    final_misfits[i, j] = self.calculate_misfit_on_grid(
+                        m00, t00, weights, counter, N)
+
+        else:
+            tt, mm = np.meshgrid(self.t00_array, self.m00_array)
+            shape = tt.shape
+
+            results = Parallel(n_jobs=num_cores)(delayed(
+                self.calculate_misfit_on_grid)(
+                tt0, mm0, weights, _i+1, N) for _i, (tt0, mm0) in
+                enumerate(zip(tt.flatten(), mm.flatten())))
+
+            final_misfits = np.array(results).reshape(shape).T
 
         logger.info("Done!")
         # find minimum
@@ -550,25 +576,38 @@ class Grid3d(object):
         t00_best_array = np.zeros(self.config.bootstrap_repeat)
         m00_best_array = np.zeros(self.config.bootstrap_repeat)
 
-        print(self.data_container.nwindows)
+
         logger.info("Looping ....")
         timer0 = time.time()
+        num_cores = multiprocessing.cpu_count()
+        logger.info("Number of cores: %d" % num_cores)
 
         for k in range(self.config.bootstrap_repeat):
-            for i in range(nt00):
-                for j in range(nm00):
-                    random_array = random_select(
-                        ntrwins, nselected=n_subset)
 
-                    new_weights = self.get_bootstrap_weights(weights,
-                                                             random_array)
+            logger.info("Bootstrap: %d/%d" % (k, self.config.bootstrap_repeat))
+            random_array = random_select(
+                ntrwins, nselected=n_subset)
+            if num_cores == 1:
+                for i in range(nt00):
+                    for j in range(nm00):
+                        t00 = t00_array[i]
+                        m00 = m00_array[j]
+                        final_misfits[k, i, j] = \
+                            self.calculate_misfit_on_subset(
+                            m00, t00, random_array, weights)
 
-                    t00 = t00_array[i]
-                    m00 = m00_array[j]
-                    measures = self.calculate_misfit_on_subset(m00, t00,
-                                                               random_array)
-                    final_misfits[k, i, j] = np.sum(measures['energy']
-                                                    * new_weights)
+            else:
+                tt, mm = np.meshgrid(self.t00_array, self.m00_array)
+                shape = tt.shape
+
+                results = Parallel(n_jobs=num_cores)(delayed(
+                    self.calculate_misfit_on_subset)(
+                    tt0, mm0, random_array, weights) for tt0, mm0 in
+                                                     zip(tt.flatten(),
+                                                         mm.flatten()))
+
+                final_misfits = np.array(results).reshape(shape).T
+
 
             # find minimum
             min_idx = final_misfits[k, :, :].argmin()
@@ -782,19 +821,34 @@ class Grid3d(object):
         plt.tight_layout()
         plt.savefig(figname)
 
-    def plot_grid(self):
+    def plot_grid(self, figurename=None):
 
         min_m_idx = np.where(self.m00_array == self.m00_best)[0]
         min_t_idx = np.where(self.t00_array == self.t00_best)[0]
 
         tt, mm = np.meshgrid(self.t00_array, self.m00_array)
-        plt.figure()
-        ctf = plt.contourf(tt, mm * self.new_cmtsource.M0, self.misfit_grid.T,
+
+        if figurename is None:
+            ax = plt.gca()
+
+        else:
+            plt.figure()
+            ax = plt.axes()
+
+        ctf = ax.contourf(tt, (mm - 1) * 100,
+                           self.misfit_grid.T,
                            cmap='Greys')
-        plt.plot(self.t00_array[min_t_idx], self.m00_array[min_m_idx]
-                 * self.new_cmtsource.M0, "r*", markeredgecolor='k',
+        ax.plot(self.t00_array[min_t_idx],
+                (self.m00_array[min_m_idx] - 1) * 100,
+                "r*", markeredgecolor='k',
                  markersize=20, label="Min Misfit")
         plt.colorbar(ctf)
-        plt.xlabel("$\\Delta t$")
-        plt.ylabel("$M_0$")
-        plt.show()
+        ax.set_xlabel("$\\Delta t$")
+        ax.set_ylabel("%% Change in $M_0$")
+
+        if figurename is None:
+            pass
+        elif figurename == 'show':
+            plt.show()
+        else:
+            plt.savefig(figurename)

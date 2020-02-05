@@ -227,13 +227,25 @@ def construct_taper(npts, taper_type="tukey", alpha=0.2):
         raise ValueError("Taper type not supported: %s" % taper_type)
     return taper
 
+def nextpoweroftwo(number):
+    """ Returns next power of two following 'number' """
+    new_number = 1
+    while new_number <= 2*number:
+        new_number *= 2
+    return new_number
+
 
 def timeshift_trace(tr: Trace, t0: float):
     """Takes in a seismic trace and shifts it in time using the fft."""
 
+    N = len(tr.data)
+    Nfix = nextpoweroftwo(N)
+
+    print(N, "to", Nfix)
     # Get frequency vector
-    freq = np.fft.fftfreq(len(tr.data), d=tr.stats.delta)
+    freq = np.fft.fftfreq(Nfix, d=tr.stats.delta)
 
     # Compute timeshifted signal using fft
-    tr.data = np.real(scipy.ifft(scipy.fft(tr.data)
-                                 * np.exp(-1j*2*np.pi*freq*t0)))
+    tr.data = np.real(scipy.ifft(
+        scipy.fft(tr.data, n=Nfix)
+        * np.exp(-1j*2*np.pi*freq*t0)))[0:N]

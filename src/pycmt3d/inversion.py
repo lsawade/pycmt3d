@@ -66,7 +66,7 @@ class Inversion(object):
 
         self.new_cmtsource = copy.deepcopy(self.grid3d.new_cmtsource)
 
-    def plot_summary(self, outputdir=".", figure_format="png",
+    def plot_summary(self, outputdir=".", figure_format="pdf",
                      mode="global"):
         """
         Plot inversion summary, including source parameter change,
@@ -106,9 +106,5 @@ class Inversion(object):
             bootstrap_std=std,
             M0_stats=M0_stats,
             var_reduction=self.grid3d.var_reduction,
-            mode=mode)
+            mode=mode, grid3d=self.grid3d)
         plot_util.plot_inversion_summary(figurename=figurename)
-
-    def plot_grid(self):
-        self.grid3d.plot_grid()
-        plt.show(block=True)

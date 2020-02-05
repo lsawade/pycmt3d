@@ -106,5 +106,6 @@ def test_inversion(cmtsource, tmpdir):
 
     inv = Inversion(cmtsource, dcon_two, cmt3d_config, grid3d_config)
     inv.source_inversion()
-    inv.plot_summary()
-    inv.plot_grid()
+    inv.plot_summary(str(tmpdir))
+
+    assert 0
