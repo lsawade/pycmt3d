@@ -21,7 +21,7 @@ import pycmt3d.measure as meas
 import numpy.testing as npt
 
 
-# Most generic way to get the data folder path.
+# Most generic way to get the data geology path.
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(
     inspect.getfile(inspect.currentframe()))), "data")
 OBSD_DIR = os.path.join(DATA_DIR, "data_T006_T030")

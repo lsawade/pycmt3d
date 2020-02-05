@@ -19,9 +19,10 @@ import pytest
 from obspy import Trace
 import pycmt3d.util as util
 import numpy.testing as npt
+from obspy import read
 
 
-# Most generic way to get the data folder path.
+# Most generic way to get the data geology path.
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(
     inspect.getfile(inspect.currentframe()))), "data")
 OBSD_DIR = os.path.join(DATA_DIR, "data_T006_T030")
@@ -127,3 +128,21 @@ def test_construct_taper_tukey():
     result[npts-2] = 0.5
     taper = util.construct_taper(npts, taper_type="tukey", alpha=0.2)
     npt.assert_allclose(taper, result)
+
+
+def test_timeshift():
+
+    # Read data
+    st = read(os.path.join(OBSD_DIR, "GSC.CI.BHT.sac.d"))
+    tr = st[0]
+
+    # define shift
+    t0 = 30.
+    nt0 = int(np.round(30/tr.stats.delta))
+
+    # shift trace
+    trshift = tr.copy()
+    util.timeshift_trace(trshift, t0)
+
+    # compare
+    npt.assert_array_almost_equal(trshift.data, np.roll(tr.data, nt0))

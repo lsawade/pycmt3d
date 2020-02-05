@@ -54,7 +54,7 @@ Documentation: http://wjlei1990.github.io/pycmt3d/
 
 setup(
     name='pycmt3d',
-    version='0.1.12',
+    version='0.1.17',
     license='GNU Lesser General Public License, Version 3',
     description='a python port of cmt3d softward',
     long_description=long_description,
@@ -82,8 +82,9 @@ setup(
     keywords=['seismology', 'cmt3d', 'moment tensor',
               'centroid moment inversion'],
     install_requires=[
-        "obspy>=1.0.0", "numpy", "future>=0.14.1", "flake8", "geographiclib",
-        "scipy", "spaceweight"
+        "obspy>=1.0.0", "numpy", "future>=0.14.1", "flake8",
+        "scipy", "spaceweight", "cartopy", "pyshp", "geographiclib",
+        "owslib", "lxml"
     ],
     extras_require={
         "docs": ["sphinx"]

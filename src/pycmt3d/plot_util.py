@@ -17,8 +17,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.patches import Rectangle
+from matplotlib.collections import LineCollection
 from obspy.geodetics import gps2dist_azimuth
 from obspy.imaging.beachball import beach
+import shapefile
+from matplotlib import cm
+from matplotlib.collections import PatchCollection
+from matplotlib.patches import Polygon
+from matplotlib.lines import Line2D
+import matplotlib.ticker as mticker
+from cartopy.crs import PlateCarree
+import cartopy
+
+from .geo_data_util import GeoMap
 
 from . import logger
 from .util import get_cmt_par, get_trwin_tag
@@ -232,7 +243,8 @@ class PlotInvSummary(object):
 
     def __init__(self, data_container=None, cmtsource=None, config=None,
                  nregions=12, new_cmtsource=None, bootstrap_mean=None,
-                 bootstrap_std=None, var_reduction=0.0, mode="regional"):
+                 bootstrap_std=None, M0_stats=None, var_reduction=0.0,
+                 mode="regional"):
         self.data_container = data_container
         self.cmtsource = cmtsource
         self.trwins = data_container.trwins
@@ -240,8 +252,8 @@ class PlotInvSummary(object):
         self.nregions = nregions
 
         self.new_cmtsource = new_cmtsource
-        self.bootstrap_mean = bootstrap_mean
         self.bootstrap_std = bootstrap_std
+        self.bootstrap_mean = bootstrap_mean
         self.var_reduction = var_reduction
 
         if mode.lower() not in ["global", "regional"]:
@@ -256,6 +268,8 @@ class PlotInvSummary(object):
         # azimuth in radius unit
         self.sta_theta = []
         self.prepare_array()
+
+        self.M0_stats = M0_stats
 
     def prepare_array(self):
         # station
@@ -290,7 +304,7 @@ class PlotInvSummary(object):
             if azimuth - 360.0 < 0.0001:
                 k = self.nregions - 1
             else:
-                raise ValueError('Error bining azimuth')
+                raise ValueError('Error binning azimuth')
         return k
 
     def calculate_azimuth_bin(self, azimuth_array):
@@ -322,19 +336,19 @@ class PlotInvSummary(object):
         ax.set_aspect('equal')
         # magnitude
         text = "Mw=%4.3f" % cmt.moment_magnitude
-        plt.text(-0.9, -0.3, text, fontsize=7)
+        plt.text(-0.9, -0.3, text, fontsize=9)
         # lat and lon
         text = "lat=%6.3f$^\\circ$; lon=%6.3f$^\\circ$" \
                % (cmt.latitude, cmt.longitude)
-        plt.text(-0.9, -0.5, text, fontsize=7)
+        plt.text(-0.9, -0.5, text, fontsize=9)
         # depth
         text = "dep=%6.3f km;" % (cmt.depth_in_m/1000.0)
-        plt.text(-0.9, -0.7, text, fontsize=7)
+        plt.text(-0.9, -0.7, text, fontsize=9)
         ax.set_xticks([])
         ax.set_yticks([])
         # title
-        text = "Init CMT"
-        plt.text(-0.9, 1.3, text, fontsize=7)
+        text = "C" + cmt.eventname + " - Init CMT"
+        plt.text(-0.9, 1.3, text, fontsize=10)
 
     @staticmethod
     def plot_si_bb_comp(ax, cmt, cmt_init, tag):
@@ -351,20 +365,20 @@ class PlotInvSummary(object):
         # magnitude
         text = r"$\Delta$Mw=%4.3f" % (
             cmt.moment_magnitude-cmt_init.moment_magnitude)
-        plt.text(-0.9, -0.3, text, fontsize=7)
+        plt.text(-0.9, -0.3, text, fontsize=9)
         # lat and lon
         text = r"$\Delta$lat=%6.3f$^\circ$; $\Delta$lon=%6.3f$^\circ$" \
                % (cmt.latitude-cmt_init.latitude,
                   cmt.longitude-cmt_init.longitude)
-        plt.text(-0.9, -0.5, text, fontsize=7)
+        plt.text(-0.9, -0.5, text, fontsize=9)
         # depth
         text = r"$\Delta$dep=%6.3f km;" % (
             (cmt.depth_in_m-cmt_init.depth_in_m)/1000.0)
-        plt.text(-0.9, -0.7, text, fontsize=7)
+        plt.text(-0.9, -0.7, text, fontsize=9)
         ax.set_xticks([])
         ax.set_yticks([])
         text = tag
-        plt.text(-0.9, 1.3, text, fontsize=7)
+        plt.text(-0.9, 1.3, text, fontsize=10)
 
     def plot_table(self):
         par_mean = self.bootstrap_mean
@@ -377,154 +391,186 @@ class PlotInvSummary(object):
                 std_over_mean[_i] = 0.0
         fontsize = 9
         incre = 0.06
-        pos = 1.00
-        format1 = "%15.4e  %15.4e  %15.4e  %15.4e   %10.2f%%"
-        format2 = "%16.3f  %16.3f  %20.3f  %20.3f   %15.2f%%"
-        format3 = "%15.3f  %15.3f  %18.3f  %18.3f   %18.2f%%"
+        pos = 1.06
+        # Moment Tensors
+        format1 = "%15.4e  %15.4e  %15.4e  %15.4e  %10.2f%%"
+        # CMT/HDR
+        format2 = r"%10.3f s  %13.3f s  " \
+                  "%13.3f s  %13.3f s  %13.2f%%"
+        # Depth
+        format3 = "%10.3f km  %12.3f km  %12.3f km  %12.3f km  %12.2f%%"
+        # LatLon
+        format4 = "%10.3f deg  %11.3f deg  %11.3f deg  %11.3f deg  %11.2f%%"
 
-        text = "Number of stations: %d          Number of widnows: %d" \
+        text = "Number of stations: %5d    Number of windows: %4d" \
                % (len(self.sta_lat), self.data_container.nwindows) + \
-               "Envelope coef: %5.2f"
-        plt.text(0, pos, text, fontsize=fontsize)
+               "    Envelope coef: %12.3f" % self.config.envelope_coef
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
         pos -= incre
-        text = "Number of Parameter:%3d         Zero-Trace:%6s" \
-               "                  Double-couple:%6s " \
+        text = "Number of Parameter: %4d    Zero-Trace: %11s" \
+               "    Double-couple: %12s " \
                % (self.config.npar, self.config.zero_trace,
                   self.config.double_couple)
-        plt.text(0, pos, text, fontsize=fontsize)
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
         pos -= incre
-        text = "Station Correction:%6s         Norm_by_energy:%6s" \
-               "              Norm_by_category:%6s" \
+        text = "Station Correction: %5s    Norm_by_energy: %7s" \
+               "    Norm_by_category: %9s" \
                % (self.config.station_correction,
                   self.config.weight_config.normalize_by_energy,
                   self.config.weight_config.normalize_by_category)
-        plt.text(0, pos, text, fontsize=fontsize)
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
         pos -= incre
         energy_change = \
             (self.new_cmtsource.M0 - self.cmtsource.M0) / self.cmtsource.M0
-        text = "Inversion Damping:%6.3f       Energy Change: %6.2f%%" \
-               "       Variance Reduction: %6.2f%%" \
+        text = "Inversion Damping: %6.3f    Energy Change: %7.2f%%" \
+               "    Variance Reduction: %6.2f%%" \
                % (self.config.damping, energy_change*100,
                   self.var_reduction*100)
-        plt.text(0, pos, text, fontsize=fontsize)
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
         pos -= incre
-        text = "*"*20 + "   Summary Table    " + "="*20
-        plt.text(0, pos, text, fontsize=fontsize)
+        text = "-"*32 + "   Summary Table   " + "-"*32
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
         pos -= incre
-        text = " PAR         Old_CMT          New_CMT       Bootstrap_Mean" \
-               "      Bootstrap_STD     STD/Mean"
-        plt.text(0, pos, text, fontsize=fontsize)
+        text = "PAR      Old_CMT          New_CMT          Bootstrap_Mean" \
+               "   Bootstrap_STD  STD/Mean"
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
         pos -= incre
         text = "Mrr:" + format1 % (
             self.cmtsource.m_rr, self.new_cmtsource.m_rr,
             par_mean[0], par_std[0], std_over_mean[0] * 100)
-        plt.text(0, pos, text, fontsize=fontsize)
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         text = "Mtt:" + format1 % (
             self.cmtsource.m_tt, self.new_cmtsource.m_tt,
             par_mean[1], par_std[1], std_over_mean[1] * 100)
         pos -= incre
-        plt.text(0, pos, text, fontsize=fontsize)
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         text = "Mpp:" + format1 % (
             self.cmtsource.m_pp, self.new_cmtsource.m_pp,
             par_mean[2], par_std[2], std_over_mean[2] * 100)
         pos -= incre
-        plt.text(0, pos, text, fontsize=fontsize)
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         text = "Mrt:" + format1 % (
             self.cmtsource.m_rt, self.new_cmtsource.m_rt,
             par_mean[3], par_std[3], std_over_mean[3] * 100)
         pos -= incre
-        plt.text(0, pos, text, fontsize=fontsize)
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         text = "Mrp:" + format1 % (
             self.cmtsource.m_rp, self.new_cmtsource.m_rp,
             par_mean[4], par_std[4], std_over_mean[4] * 100)
         pos -= incre
-        plt.text(0, pos, text, fontsize=fontsize)
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         text = "Mtp:" + format1 % (
             self.cmtsource.m_tp, self.new_cmtsource.m_tp,
             par_mean[5], par_std[5], std_over_mean[5] * 100)
         pos -= incre
-        plt.text(0, pos, text, fontsize=fontsize)
-        text = "DEP:  " + format3 % (
-               self.cmtsource.depth_in_m,
-               self.new_cmtsource.depth_in_m,
-               par_mean[6], par_std[6], std_over_mean[6] * 100)
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        text = "DEP:" + format3 % (
+               self.cmtsource.depth_in_m/1000,
+               self.new_cmtsource.depth_in_m/1000,
+               par_mean[6]/1000, par_std[6]/1000, std_over_mean[6] * 100)
         pos -= incre
-        plt.text(0, pos, text, fontsize=fontsize)
-        text = "LON:" + format2 % (
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        text = "LAT:" + format4 % (
+            self.cmtsource.latitude, self.new_cmtsource.latitude,
+            par_mean[8], par_std[8], std_over_mean[8] * 100)
+        pos -= incre
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        text = "LON:" + format4 % (
                self.cmtsource.longitude, self.new_cmtsource.longitude,
                par_mean[7], par_std[7], std_over_mean[7] * 100)
         pos -= incre
-        plt.text(0, pos, text, fontsize=fontsize)
-        text = "LAT:  " + format2 % (
-               self.cmtsource.latitude, self.new_cmtsource.latitude,
-               par_mean[8], par_std[8], std_over_mean[8] * 100)
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        text = "Grid Search Parameters:"
         pos -= incre
-        plt.text(0, pos, text, fontsize=fontsize)
-        text = "CMT:   " + format2 % (
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        text = "CMT:" + format2 % (
                self.cmtsource.time_shift, self.new_cmtsource.time_shift,
-               par_mean[9], par_std[9], std_over_mean[9] * 100)
+               par_mean[9], par_std[9], par_std[9]/par_mean[9] * 100)
         pos -= incre
-        plt.text(0, pos, text, fontsize=fontsize)
-        text = "HDR:   " + format2 % (
-               self.cmtsource.half_duration, self.new_cmtsource.half_duration,
-               par_mean[10], par_std[10], std_over_mean[10] * 100)
-        pos -= incre
-        plt.text(0, pos, text, fontsize=fontsize)
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+
+        if self.M0_stats is not None:
+            text = "M0: " + format1 % (
+                self.cmtsource.M0, self.new_cmtsource.M0,
+                self.M0_stats[0], self.M0_stats[1],
+                self.M0_stats[1]/self.M0_stats[0] * 100)
+            pos -= incre
+            plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+
+        # text = "HDR:" + format2 % (
+        #        self.cmtsource.half_duration,
+        #        self.new_cmtsource.half_duration,
+        #        par_mean[10], par_std[10], std_over_mean[10] * 100)
+        # pos -= incre
+        # plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         plt.axis('off')
 
     def plot_global_map(self):
         """
         Plot global map of event and stations
+        :return:
         """
+        ax = plt.gca()
+        ax.frameon = True
+        ax.outline_patch.set_linewidth(0.75)
+        # Set gridlines. NO LABELS HERE, there is a bug in the gridlines
+        # function around 180deg
+        gl = ax.gridlines(crs=PlateCarree(), draw_labels=False,
+                          linewidth=1, color='lightgray', alpha=0.5,
+                          linestyle='-')
+        gl.xlabels_top = False
+        gl.ylabels_left = False
+        gl.xlines = True
+        # ax.outline_patch.set_visible(False)
 
-        # import basemap here due to error
-        from mpl_toolkits.basemap import Basemap
+        # Change fontsize
+        fontsize = 12
+        font_dict = {"fontsize": fontsize,
+                     "weight": "bold"}
+        ax.set_xticklabels(ax.get_xticklabels(), fontdict=font_dict)
+        ax.set_yticklabels(ax.get_yticklabels(), fontdict=font_dict)
 
-        # ax = plt.subplot(211)
-        plt.title(self.cmtsource.eventname)
-        m = Basemap(projection='cyl', lon_0=0.0, lat_0=0.0,
-                    resolution='c')
-        m.drawcoastlines()
-        m.fillcontinents()
-        m.drawparallels(np.arange(-90., 120., 30.))
-        m.drawmeridians(np.arange(0., 420., 60.))
-        m.drawmapboundary()
+        ax.add_feature(cartopy.feature.LAND, zorder=0,
+                       edgecolor='black', facecolor=(0.85, 0.85, 0.85))
 
-        x, y = m(self.sta_lon, self.sta_lat)
-        m.scatter(x, y, 30, color="r", marker="^", edgecolor="k",
-                  linewidth='0.3', zorder=3)
+        # Plot stations
+        ax.scatter(self.sta_lon, self.sta_lat, 30, color="r", marker="^",
+                   edgecolor="k", linewidth='0.3', zorder=3)
 
+        # Get CMT location
         cmt_lat = self.cmtsource.latitude
         cmt_lon = self.cmtsource.longitude
         focmecs = get_cmt_par(self.cmtsource)[:6]
-        ax = plt.gca()
+
         if self.mode == 'regional':
-            minlon = min(self.sta_lon)
-            maxlon = max(self.sta_lon)
-            minlat = min(self.sta_lat)
-            maxlat = max(self.sta_lat)
+            minlon = np.min(self.sta_lon)
+            maxlon = np.max(self.sta_lon)
+            minlat = np.min(self.sta_lat)
+            maxlat = np.max(self.sta_lat)
             padding = 5.
-            m.drawparallels(np.arange(-90., 120., padding))
-            m.drawmeridians(np.arange(0., 420., padding))
-            ax.set_xlim(minlon-padding, maxlon+padding)
-            ax.set_ylim(minlat-padding, maxlat+padding)
-            width_beach = min((maxlon+2*padding-minlon)/(4*padding),
-                              (maxlat+2*padding-minlat)/(4*padding))
+
+            # Updated parallels..
+            ax.set_extent([minlon - padding, maxlon + padding,
+                           minlat - padding, maxlat + padding])
+            width_beach = min((maxlon + 2 * padding - minlon) / (4 * padding),
+                              (maxlat + 2 * padding - minlat) / (4 * padding))
         else:
+            ax.set_global()
             width_beach = 20
+
         bb = beach(focmecs, xy=(cmt_lon, cmt_lat),
                    width=width_beach, linewidth=1, alpha=1.0)
         bb.set_zorder(10)
         ax.add_collection(bb)
 
     def plot_sta_dist_azi(self):
-        plt.title("Station Dist and Azi", fontsize=10)
+        plt.title("Station Dist and Azi", fontsize=10, y=1.15)
         ax = plt.gca()
         c = plt.scatter(self.sta_theta, self.sta_dist, marker=u'^', c='r',
                         s=20, edgecolor='k', linewidth='0.3')
@@ -540,7 +586,7 @@ class PlotInvSummary(object):
 
     def plot_sta_azi(self):
         # set plt.subplot(***, polar=True)
-        plt.title("Station Azimuth", fontsize=10)
+        plt.title("Station Azimuth", fontsize=10, y=1.15)
         azimuth_array = []
         for azi in self.sta_azi:
             azimuth_array.append([azi, 1])
@@ -562,7 +608,7 @@ class PlotInvSummary(object):
 
     def plot_win_azi(self):
         # set plt.subplot(***, polar=True)
-        plt.title("Window Azimuth", fontsize=10)
+        plt.title("Window Azimuth", fontsize=10, y=1.15)
         win_azi = []
         for azi, window in zip(self.sta_azi, self.trwins):
             win_azi.append([azi, window.nwindows])
@@ -589,7 +635,7 @@ class PlotInvSummary(object):
         """
         plt.figure(figsize=(10, 7), facecolor='w', edgecolor='k')
         g = gridspec.GridSpec(2, 3)
-        plt.subplot(g[0, :-1])
+        plt.subplot(g[0, :-1], projection=PlateCarree(0.0))
         self.plot_global_map()
         plt.subplot(g[1, 0],  polar=True)
         self.plot_sta_dist_azi()
@@ -599,10 +645,146 @@ class PlotInvSummary(object):
         self.plot_win_azi()
         ax = plt.subplot(g[0, 2])
         self.plot_si_bb(ax, self.cmtsource)
+        plt.tight_layout()
         if figurename is None:
             plt.show()
         else:
             plt.savefig(figurename)
+
+    def plot_faults(self):
+        fname = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "data", "faults",
+                             "gem_active_faults_harmonized.shp")
+        with shapefile.Reader(fname) as shp:
+            coordinates = []
+            for k, rec in enumerate(shp.shapes()):
+                coordinates.append(
+                    np.array(rec.__geo_interface__['coordinates']))
+
+        faults = [[(lon, lat) for lon, lat in coords] for coords in
+                  coordinates]
+
+        ax = plt.gca()
+        lc = LineCollection(faults, colors=(0, 0, 0), zorder=150)
+        ax.add_collection(lc)
+
+    def plot_mini_map(self):
+
+        ax = plt.gca()
+
+        # Get CMT location
+        cmt_lat = self.cmtsource.latitude
+        cmt_lon = self.cmtsource.longitude
+        new_cmt_lat = self.new_cmtsource.latitude
+        new_cmt_lon = self.new_cmtsource.longitude
+
+        padding = 1
+        minlon = cmt_lon - padding
+        maxlon = cmt_lon + padding
+        minlat = cmt_lat - padding
+        maxlat = cmt_lat + padding
+
+        # Updated parallels..
+        ax.set_xlim([minlon - padding, maxlon + padding])
+        ax.set_ylim([minlat - padding, maxlat + padding])
+        ax.frameon = True
+        ax.outline_patch.set_linewidth(0.75)
+
+        lon_tick = np.arange(np.floor(minlon) - padding,
+                             np.ceil(maxlon) + padding,
+                             padding / 2)
+        lat_tick = np.arange(np.floor(minlat) - padding,
+                             np.ceil(maxlat) + padding,
+                             padding / 2)
+
+        # Set gridlines. NO LABELS HERE, there is a bug in the gridlines
+        # function around 180deg
+        gl = ax.gridlines(crs=PlateCarree(), draw_labels=True,
+                          linewidth=1, color='lightgray', alpha=0.5,
+                          linestyle='-')
+        gl.xlabels_top = False
+        gl.ylabels_left = False
+        gl.xlines = True
+        gl.xlocator = mticker.FixedLocator(lon_tick)
+        gl.ylocator = mticker.FixedLocator(lat_tick)
+        gl.xlabel_style = {"rotation": 45., "ha": "right"}
+
+        # ax.outline_patch.set_visible(False)
+
+        # Change fontsize
+        fontsize = 12
+        font_dict = {"fontsize": fontsize,
+                     "weight": "bold"}
+        ax.set_xticklabels(ax.get_xticklabels(), fontdict=font_dict)
+        ax.set_yticklabels(ax.get_yticklabels(), fontdict=font_dict)
+
+        # ax.add_feature(cartopy.feature.COASTLINE, lw=2,
+        ax.coastlines(color='black', lw=2, zorder=200)
+
+        # Plot stations
+        ax.scatter(self.sta_lon, self.sta_lat, 30, color="r", marker="^",
+                   edgecolor="k", linewidth='0.3', zorder=3)
+
+        width_beach = min((maxlon + 2 * padding - minlon) / (5 * padding),
+                          (maxlat + 2 * padding - minlat) / (5 * padding))
+
+        focmecs = get_cmt_par(self.cmtsource)[:6]
+        bb = beach(focmecs, xy=(cmt_lon, cmt_lat),
+                   width=width_beach, linewidth=1, alpha=1.0, zorder=250)
+        ax.add_collection(bb)
+        new_focmecs = get_cmt_par(self.new_cmtsource)[:6]
+        new_bb = beach(new_focmecs, facecolor='r',
+                       xy=(new_cmt_lon, new_cmt_lat), width=width_beach,
+                       linewidth=1, alpha=1.0, zorder=250)
+        ax.add_collection(new_bb)
+
+    def plot_geology(self):
+        """Reads json and plots geological features"""
+
+        fname = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "data", "geology", "geology.json")
+        geomap = GeoMap.load_json(fname)
+        ax = plt.gca()
+
+        # Get discrete colormap
+        self.geo_cmap = cm.get_cmap('gist_ncar', geomap.ndescr)
+
+        # Translate the colors to a colormap
+        self.colordict = dict()
+
+        for k, descriptions in enumerate(sorted(list(geomap.descriptions))):
+            self.colordict[descriptions] = k
+
+        patches = []
+        colors = []
+        for member in geomap.members:
+
+            for poly in member.coordinates:
+                patches.append(Polygon(np.fliplr(poly), joinstyle="round",
+                                       fill=True, edgecolor=None))
+                colors.append(self.colordict[member.description])
+
+        p = PatchCollection(patches, cmap=self.geo_cmap, alpha=0.4, zorder=100)
+        p.set_array(np.array(colors))
+        ax.add_collection(p)
+
+    def plot_geology_legend(self):
+
+        plt.figure()
+        plt.figure(figsize=(15, 8), facecolor='w', edgecolor='k')
+        ax = plt.axes()
+        circs = []
+        labels = []
+
+        for key, value in self.colordict.items():
+            circs.append(
+                Line2D([0], [0], linestyle="none", marker="s", alpha=0.4,
+                       markersize=10, markerfacecolor=self.geo_cmap(value)))
+            labels.append(key)
+
+        ax.legend(circs, labels, numpoints=1, loc="best",
+                  ncol=2, fontsize=8, frameon=False)
+        ax.axis('off')
 
     def plot_inversion_summary(self, figurename=None):
         """
@@ -611,9 +793,10 @@ class PlotInvSummary(object):
         if self.new_cmtsource is None:
             raise ValueError("No new cmtsource...Can't plot summary")
 
-        plt.figure(figsize=(10, 11), facecolor='w', edgecolor='k')
+        plt.figure(figsize=(10, 10.5), facecolor='w', edgecolor='k',
+                   tight_layout=True)
         g = gridspec.GridSpec(3, 3)
-        plt.subplot(g[0, :-1])
+        plt.subplot(g[0, :-1], projection=PlateCarree())
         self.plot_global_map()
         plt.subplot(g[1, 0],  polar=True)
         self.plot_sta_dist_azi()
@@ -621,13 +804,19 @@ class PlotInvSummary(object):
         self.plot_sta_azi()
         plt.subplot(g[1, 2], polar=True)
         self.plot_win_azi()
-        ax = plt.subplot(g[0, 2])
-        self.plot_si_bb(ax, self.cmtsource)
+        ax = plt.subplot(g[0, 2], projection=PlateCarree())
+        # ax.set_global()
+        self.plot_mini_map()
+        self.plot_geology()
+        self.plot_faults()
+        # self.plot_si_bb(ax, self.cmtsource)
         ax = plt.subplot(g[2, 2])
         self.plot_si_bb_comp(ax, self.new_cmtsource, self.cmtsource,
                              "Inversion")
         plt.subplot(g[2, :-1])
         self.plot_table()
+        # fig.canvas.draw()
+        # plt.tight_layout()
         if figurename is None:
             plt.show()
         else:

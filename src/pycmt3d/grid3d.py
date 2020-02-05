@@ -11,6 +11,7 @@ Class for grid search for origin time and scalar moment for CMT source
 """
 from __future__ import print_function, division, absolute_import
 import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
@@ -19,7 +20,19 @@ from . import logger
 from .weight import Weight
 from .data_container import MetaInfo
 from .measure import calculate_variance_on_trace
+from .measure import calculate_waveform_misfit_on_trace
 from .plot_util import PlotStats
+from .util import timeshift_trace
+from .util import random_select
+import time
+
+
+def del_line(n=1):
+    """deletes one printed line."""
+    time.sleep(0.001)
+    sys.stdout.write("\033[F")  # back to previous line
+    sys.stdout.write("\033[K")  # clear line
+    sys.stdout.flush()
 
 
 class Grid3dConfig(object):
@@ -27,8 +40,9 @@ class Grid3dConfig(object):
                  dt_over_delta=1, energy_inv=True,
                  energy_start=0.8, energy_end=1.2, denergy=0.1,
                  energy_keys=None, energy_misfit_coef=None,
-                 weight_data=False, weight_config=None,
-                 taper_type="tukey"):
+                 weight_data=False, weight_config=None, use_new=False,
+                 taper_type="tukey", bootstrap=True, bootstrap_repeat=20,
+                 bootstrap_subset_ratio=0.4):
 
         self.origin_time_inv = origin_time_inv
         self.time_start = time_start
@@ -39,6 +53,11 @@ class Grid3dConfig(object):
         self.energy_start = energy_start
         self.energy_end = energy_end
         self.denergy = denergy
+
+        # Bootstrap parameters
+        self.bootstrap = bootstrap
+        self.bootstrap_repeat = bootstrap_repeat
+        self.bootstrap_subset_ratio = bootstrap_subset_ratio
 
         # energy_keys could contain ["power_l1", "power_l2", "cc_amp", "chi"]
         if energy_keys is None:
@@ -63,6 +82,10 @@ class Grid3dConfig(object):
 
         self.taper_type = taper_type
 
+        # If the data_container contains new_synthetic data, the new
+        # synthetic data can be used for the gridsearch.
+        self.use_new = use_new
+
 
 class Grid3d(object):
     """
@@ -82,9 +105,24 @@ class Grid3d(object):
         self.t00_misfit = None
         self.t00_array = None
 
+        self.t00_mean = None
+        self.t00_std = None
+        self.t00_var = None
+
         self.m00_best = None
         self.m00_misfit = None
         self.m00_array = None
+
+        self.m00_mean = None
+        self.m00_std = None
+        self.m00_var = None
+
+        self.misfit_grid = None
+        self.cat_misfit_grid = None
+
+        self.var_all = None
+        self.var_all_new = None
+        self.var_reduction = None
 
     def setup_window_weight(self):
         """
@@ -120,13 +158,39 @@ class Grid3d(object):
             self.metas.append(metainfo)
 
     def search(self):
+        """Searches for origin time first and then for the energy"""
 
+        # This sets up everything
         self.setup_window_weight()
+
+        # Searches for origin time
         self.grid_search_origin_time()
+
+        # Searches for energy
         self.grid_search_energy()
 
         self.prepare_new_cmtsource()
         self.prepare_new_synthetic()
+
+    def grid_search(self):
+        """Searches for origin time and energy simultaneously over a grid of
+        time shifts and moments."""
+
+        # Setup window weights
+        self.setup_window_weight()
+
+        # Run grid search
+        self.grid_search_taM()
+
+        # Run bootstrap statistic
+        self.grid_search_bootstrap()
+
+        # Output new data
+        self.prepare_new_cmtsource()
+        self.prepare_new_synthetic()
+
+        # Calculate variance reduction
+        self.calculate_variance()
 
     def prepare_new_cmtsource(self):
         newcmt = deepcopy(self.cmtsource)
@@ -134,7 +198,7 @@ class Grid3d(object):
         logger.info("Preparing new cmtsource...")
         if self.config.origin_time_inv:
             newcmt.cmt_time += self.t00_best
-            logger.info("\tadding time shift to cmt origin time:"
+            logger.info("\tAdding time shift to cmt origin time:"
                         "%s + %fsec= %s"
                         % (self.cmtsource.cmt_time, self.t00_best,
                            newcmt.cmt_time))
@@ -144,7 +208,7 @@ class Grid3d(object):
             for attr in attrs:
                 newval = self.m00_best * getattr(newcmt, attr)
                 setattr(newcmt, attr, newval)
-            logger.info("\tmultiply scalar moment change by %f%%"
+            logger.info("\tMultiply scalar moment change by %f%%"
                         % (self.m00_best * 100))
 
         self.new_cmtsource = newcmt
@@ -165,7 +229,7 @@ class Grid3d(object):
             meta.prov["new_synt"] = \
                 calculate_variance_on_trace(obsd, new_synt, trwin.windows,
                                             self.config.taper_type)
-            # becuase calculate_variance_on_trace assumes obsd and new_synt
+            # because calculate_variance_on_trace assumes obsd and new_synt
             # starting at the same time(which is not the case since we
             # correct the starting time of new_synt)
             if self.config.origin_time_inv:
@@ -209,6 +273,7 @@ class Grid3d(object):
         else:
             weights = np.ones(len(tshifts))
 
+        # Grid search vector
         t00_array = np.arange(t00_s, t00_e+dt00, dt00)
         nt00 = t00_array.shape[0]
         final_misfits = np.zeros(nt00)
@@ -231,6 +296,7 @@ class Grid3d(object):
         self.t00_misfit = final_misfits
 
     def calculate_misfit_for_m00(self, m00):
+        """Computes misfit for amplitude scaling."""
         power_l1s = []
         power_l2s = []
         cc_amps = []
@@ -253,7 +319,294 @@ class Grid3d(object):
                     "chi": np.array(chis)}
         return measures
 
+    def calculate_misfit_on_grid(self, m00, t0):
+        """Computes amplitude and cross correlation misfit for moment scaling
+        as well as timeshift."""
+
+        misfits = []
+
+        for trwin in self.data_container:
+            obsd = trwin.datalist["obsd"]
+
+            if self.config.use_new:
+                if "new_synt" not in trwin.datalist:
+                    raise ValueError("new synt is not in trwin(%s) "
+                                     "datalist: %s"
+                                     % (trwin, trwin.datalist.keys()))
+                else:
+                    synt = trwin.datalist["new_synt"].copy()
+            else:
+                synt = trwin.datalist["synt"].copy()
+
+            # Shift trace in time
+            timeshift_trace(synt, t0)
+
+            # Scale amplitude
+            synt.data *= m00
+            measures = calculate_waveform_misfit_on_trace(obsd, synt,
+                                                          trwin.windows)
+            misfits.extend(measures["v"])
+
+        measures = {"energy": np.array(misfits)}
+
+        return measures
+
+    def calculate_misfit_on_subset(self, m00, t0, subset):
+        """Computes misfit for amplitude scaling as well as timeshift."""
+
+        misfits = []
+
+        for k, trwin in enumerate(self.data_container):
+            if subset[k] != 0:
+                obsd = trwin.datalist["obsd"]
+
+                if self.config.use_new:
+                    if "new_synt" not in trwin.datalist:
+                        raise ValueError("new synt is not in trwin(%s) "
+                                         "datalist: %s"
+                                         % (trwin, trwin.datalist.keys()))
+                    else:
+                        synt = trwin.datalist["new_synt"].copy()
+                else:
+                    synt = trwin.datalist["synt"].copy()
+
+                # Shift trace in time
+                timeshift_trace(synt, t0)
+
+                # Scale amplitude
+                synt.data *= m00
+                measures = calculate_waveform_misfit_on_trace(obsd, synt,
+                                                              trwin.windows)
+                misfits.extend(measures["v"])
+
+            measures = {"energy": np.array(misfits)}
+
+        return measures
+
+    def grid_search_taM(self):
+        """Grid search over time and Magnitude."""
+
+        logger.info('Grid Search:')
+
+        # Moment parameters
+        m00_s = self.config.energy_start
+        m00_e = self.config.energy_end
+        dm00 = self.config.denergy
+        logger.info("Energy Start and End: [%6.3f, %6.3f]"
+                    % (m00_s, m00_e))
+        logger.info("Energy Interval: %6.3f" % dm00)
+
+        # Energy vector
+        self.m00_array = np.arange(m00_s, m00_e + dm00, dm00)
+        nm00 = self.m00_array.shape[0]
+
+        # Timeshift parameters
+        t00_s = self.config.time_start
+        t00_e = self.config.time_end
+        dt00 = self.config.dt_over_delta * \
+            self.data_container[0].datalist['obsd'].stats.delta
+
+        logger.info("Time Start and End: [%8.3f, %8.3f]"
+                    % (t00_s, t00_e))
+        logger.info("Time Interval:%10.3f" % dt00)
+
+        # Grid search vector
+        self.t00_array = np.arange(t00_s, t00_e + dt00, dt00)
+        nt00 = self.t00_array.shape[0]
+
+        # Empty misfit grid
+        final_misfits = np.zeros((nt00, nm00))
+
+        cat_misfits = {}
+        for key in self.config.energy_keys:
+            cat_misfits[key] = np.zeros((nt00, nm00))
+
+        if self.config.weight_data:
+            weights = []
+            for meta in self.metas:
+                weights.extend(meta.weights)
+            weights = np.array(weights)
+        else:
+            if self.data_container.nwindows:
+                weights = np.ones(self.data_container.nwindows)
+            else:
+                weights = np.ones(len(self.data_container.nwindows))
+
+        logger.info("Looping ....")
+        for i in range(nt00):
+            for j in range(nm00):
+                t00 = self.t00_array[i]
+                m00 = self.m00_array[j]
+                measures = self.calculate_misfit_on_grid(m00, t00)
+
+                final_misfits[i, j] = np.sum(measures['energy']
+                                             * weights)
+
+        logger.info("Done!")
+        # find minimum
+        min_idx = final_misfits.argmin()
+        min_t_idx, min_M_idx = np.unravel_index(min_idx, final_misfits.shape)
+
+        # Get Values
+        t00_best = self.t00_array[min_t_idx]
+        m00_best = self.m00_array[min_M_idx]
+
+        if min_t_idx == 0 or min_t_idx == (nt00 - 1):
+            logger.warning("Time search reaches boundary, which means the"
+                           "search range should be reset.")
+        logger.info("Best t0: %2.2f s" % t00_best)
+
+        if min_M_idx == 0 or min_M_idx == (nm00 - 1):
+            logger.warning("Energy search reaches boundary, which means the"
+                           "search range should be reset.")
+        logger.info("Best M0: %6.3f" % m00_best)
+
+        self.m00_best = m00_best
+        self.t00_best = t00_best
+
+        self.misfit_grid = final_misfits
+        # self.cat_misfit_grid = cat_misfits
+
+    def get_bootstrap_weights(self, weights, random_array):
+        """ Uses the random_array to get the weights corresponding to the
+        subselected windows.
+
+        :param weights:
+        :param random_array:
+        :return:
+        """
+
+        choice_array = []
+        for k, trwin in enumerate(self.data_container):
+            for l in range(trwin.nwindows):
+                if random_array[k]:
+                    choice_array.append(True)
+                else:
+                    choice_array.append(False)
+
+        return weights[choice_array]
+
+    def grid_search_bootstrap(self):
+        """Grid search over time and Magnitude multiple times with subsets to
+        evaluate standard deviation, mean, and variance"""
+
+        logger.info('Bootstrap Grid Search:')
+
+        # Moment parameters
+        m00_s = self.config.energy_start
+        m00_e = self.config.energy_end
+        dm00 = self.config.denergy
+        logger.info("Energy Start and End: [%6.3f, %6.3f]"
+                    % (m00_s, m00_e))
+        logger.info("Energy Interval: %6.3f" % dm00)
+
+        # Energy vector
+        m00_array = np.arange(m00_s, m00_e + dm00, dm00)
+        nm00 = m00_array.shape[0]
+
+        # Timeshift parameters
+        t00_s = self.config.time_start
+        t00_e = self.config.time_end
+        dt00 = self.config.dt_over_delta * \
+            self.data_container[0].datalist['obsd'].stats.delta
+
+        logger.info("Time Start and End: [%8.3f, %8.3f]"
+                    % (t00_s, t00_e))
+        logger.info("Time Interval:%10.3f" % dt00)
+
+        # Grid search vector
+        t00_array = np.arange(t00_s, t00_e + dt00, dt00)
+        nt00 = t00_array.shape[0]
+
+        # Setup Bootstrap inversion
+        ntrwins = len(self.data_container)
+        print(ntrwins)
+        n_subset = \
+            max(int(self.config.bootstrap_subset_ratio * ntrwins), 1)
+        logger.info("Bootstrap Repeat: %d  Subset Ratio: %f Nsub: %d"
+                    % (self.config.bootstrap_repeat,
+                       self.config.bootstrap_subset_ratio, n_subset))
+
+        # Empty misfit grid
+        final_misfits = np.zeros((self.config.bootstrap_repeat, nt00, nm00))
+
+        cat_misfits = {}
+        for key in self.config.energy_keys:
+            cat_misfits[key] = np.zeros((self.config.bootstrap_repeat,
+                                         nt00, nm00))
+
+        if self.config.weight_data:
+            weights = []
+            for meta in self.metas:
+                weights.extend(meta.weights)
+            weights = np.array(weights)
+        else:
+            if self.data_container.nwindows:
+                weights = np.ones(self.data_container.nwindows)
+            else:
+                weights = np.ones(len(self.data_container.nwindows))
+
+        # Create array for best values
+        t00_best_array = np.zeros(self.config.bootstrap_repeat)
+        m00_best_array = np.zeros(self.config.bootstrap_repeat)
+
+        print(self.data_container.nwindows)
+        logger.info("Looping ....")
+        timer0 = time.time()
+
+        for k in range(self.config.bootstrap_repeat):
+            for i in range(nt00):
+                for j in range(nm00):
+                    random_array = random_select(
+                        ntrwins, nselected=n_subset)
+
+                    new_weights = self.get_bootstrap_weights(weights,
+                                                             random_array)
+
+                    t00 = t00_array[i]
+                    m00 = m00_array[j]
+                    measures = self.calculate_misfit_on_subset(m00, t00,
+                                                               random_array)
+                    final_misfits[k, i, j] = np.sum(measures['energy']
+                                                    * new_weights)
+
+            # find minimum
+            min_idx = final_misfits[k, :, :].argmin()
+            min_t_idx, min_M_idx = np.unravel_index(
+                min_idx, final_misfits[k, :, :].shape)
+
+            # Get Values
+            t00_best_array[k] = t00_array[min_t_idx]
+            m00_best_array[k] = m00_array[min_M_idx]
+
+            if min_t_idx == 0 or min_t_idx == (nt00 - 1):
+                logger.warning("Time search reaches boundary, which means the"
+                               "search range should be reset.")
+            logger.info("Best t0: %2.2f s" % t00_best_array[k])
+
+            if min_M_idx == 0 or min_M_idx == (nm00 - 1):
+                logger.warning("Energy search reaches boundary, "
+                               "which means the"
+                               "search range should be reset.")
+            logger.info("Best M0: %6.3f" % m00_best_array[k])
+
+        logger.info("Done!")
+        logger.info("Time elapsed: %4.f\n" % (time.time() - timer0))
+
+        self.m00_std = np.std(m00_best_array) * self.cmtsource.M0
+        self.m00_var = np.var(m00_best_array) * self.cmtsource.M0
+        self.m00_mean = np.mean(m00_best_array) * self.cmtsource.M0
+        self.t00_std = np.std(t00_best_array)
+        self.t00_var = np.var(t00_best_array)
+        self.t00_mean = np.mean(t00_best_array) + self.cmtsource.time_shift
+
+        logger.info("t0 stats: Mean: %2.2f s - STD: %2.2f s - Var: %3.4f "
+                    "s**2" % (self.t00_mean, self.t00_std, self.t00_var))
+        logger.info("M0 stats: Mean: %4e - STD: %4e s - Var: %4e"
+                    "s**2" % (self.m00_mean, self.m00_std, self.m00_var))
+
     def grid_search_energy(self):
+        """Searches for Energy only """
 
         logger.info('Energy grid Search')
 
@@ -291,7 +644,7 @@ class Grid3d(object):
 
             if self.config.energy_keys != "None":
                 for key_idx, key in enumerate(self.config.energy_keys):
-                    cat_val = np.sum(measures[key]**2 * weights)
+                    cat_val = np.sqrt(np.sum(measures[key]**2 * weights))
                     cat_misfits[key][i] = cat_val
                     final_misfits[i] += \
                         self.config.energy_misfit_coef[key_idx] * cat_val
@@ -320,7 +673,41 @@ class Grid3d(object):
         logger.info("New cmtsource file: %s" % fn)
         self.new_cmtsource.write_CMTSOLUTION_file(fn)
 
-    def plot_stats_histogram(self, outputdir=".", figure_format="png"):
+    def calculate_variance(self):
+        """ Computes the variance reduction"""
+        var_all = 0.0
+        var_all_new = 0.0
+
+        # calculate metrics for each trwin
+        for meta, trwin in zip(self.metas, self.data_container.trwins):
+            obsd = trwin.datalist['obsd']
+            synt = trwin.datalist['synt']
+
+            # calculate old variance metrics
+            meta.prov["synt"] = \
+                calculate_variance_on_trace(obsd, synt, trwin.windows,
+                                            self.config.taper_type)
+
+            new_synt = trwin.datalist['new_synt']
+            # calculate new variance metrics
+            meta.prov["new_synt"] = \
+                calculate_variance_on_trace(obsd, new_synt, trwin.windows,
+                                            self.config.taper_type)
+
+            var_all += np.sum(0.5 * meta.prov["synt"]["chi"] * meta.weights)
+            var_all_new += np.sum(0.5 * meta.prov["new_synt"]["chi"]
+                                  * meta.weights)
+
+        logger.info(
+            "Total Variance Reduced from %e to %e ===== %f %%"
+            % (var_all, var_all_new, (var_all - var_all_new) / var_all * 100))
+        logger.info("*" * 20)
+
+        self.var_all = var_all
+        self.var_all_new = var_all_new
+        self.var_reduction = (var_all - var_all_new) / var_all
+
+    def plot_stats_histogram(self, outputdir=".", figure_format="pdf"):
         """
         Plot the histogram of meansurements inside windows for
         old and new synthetic seismograms
@@ -329,7 +716,7 @@ class Grid3d(object):
         plot_util = PlotStats(self.data_container, self.metas, figname)
         plot_util.plot_stats_histogram()
 
-    def plot_misfit_summary(self, outputdir=".", figure_format="png"):
+    def plot_misfit_summary(self, outputdir=".", figure_format="pdf"):
         """
         Plot histogram and misfit curve of origin time result
 
@@ -394,3 +781,20 @@ class Grid3d(object):
         plt.legend(numpoints=1)
         plt.tight_layout()
         plt.savefig(figname)
+
+    def plot_grid(self):
+
+        min_m_idx = np.where(self.m00_array == self.m00_best)[0]
+        min_t_idx = np.where(self.t00_array == self.t00_best)[0]
+
+        tt, mm = np.meshgrid(self.t00_array, self.m00_array)
+        plt.figure()
+        ctf = plt.contourf(tt, mm * self.new_cmtsource.M0, self.misfit_grid.T,
+                           cmap='Greys')
+        plt.plot(self.t00_array[min_t_idx], self.m00_array[min_m_idx]
+                 * self.new_cmtsource.M0, "r*", markeredgecolor='k',
+                 markersize=20, label="Min Misfit")
+        plt.colorbar(ctf)
+        plt.xlabel("$\\Delta t$")
+        plt.ylabel("$M_0$")
+        plt.show()
