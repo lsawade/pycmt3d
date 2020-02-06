@@ -18,6 +18,7 @@ plt.switch_backend('agg')
 from copy import deepcopy
 
 import multiprocessing
+import psutil
 from joblib import delayed
 from joblib import Parallel
 
@@ -352,7 +353,7 @@ class Grid3d(object):
             synt.data *= m00
             measures = calculate_waveform_misfit_on_trace(obsd, synt,
                                                           trwin.windows)
-            misfits.extend(measures["v"])
+            misfits.extend(measures)
 
         misfit = np.sum(np.array(misfits) * weights)
         return misfit
@@ -383,12 +384,13 @@ class Grid3d(object):
                 synt.data *= m00
                 measures = calculate_waveform_misfit_on_trace(obsd, synt,
                                                               trwin.windows)
-                misfits.extend(measures["v"])
 
-            new_weights = self.get_bootstrap_weights(weights,
+                misfits.extend(measures)
+
+        new_weights = self.get_bootstrap_weights(weights,
                                                      subset)
 
-            misfit = np.sum(np.array(misfits)*new_weights)
+        misfit = np.sum(np.array(misfits) * new_weights)
 
         return misfit
 
@@ -445,7 +447,7 @@ class Grid3d(object):
         logger.info("Looping ....")
         logger.info("Number of iterations: %d" % N)
         counter = 0
-        num_cores = multiprocessing.cpu_count()
+        num_cores = psutil.cpu_count(logical = False)
         logger.info("Number of cores: %d" % num_cores)
         if num_cores == 1:
             for i in range(nt00):
@@ -461,7 +463,8 @@ class Grid3d(object):
             tt, mm = np.meshgrid(self.t00_array, self.m00_array)
             shape = tt.shape
 
-            results = Parallel(n_jobs=num_cores)(delayed(
+            results = Parallel(n_jobs=num_cores,
+                               backend='multiprocessing')(delayed(
                 self.calculate_misfit_on_grid)(
                 tt0, mm0, weights, _i+1, N) for _i, (tt0, mm0) in
                 enumerate(zip(tt.flatten(), mm.flatten())))
@@ -579,7 +582,7 @@ class Grid3d(object):
 
         logger.info("Looping ....")
         timer0 = time.time()
-        num_cores = multiprocessing.cpu_count()
+        num_cores = psutil.cpu_count(logical = False)
         logger.info("Number of cores: %d" % num_cores)
 
         for k in range(self.config.bootstrap_repeat):
@@ -600,13 +603,13 @@ class Grid3d(object):
                 tt, mm = np.meshgrid(self.t00_array, self.m00_array)
                 shape = tt.shape
 
-                results = Parallel(n_jobs=num_cores)(delayed(
-                    self.calculate_misfit_on_subset)(
-                    tt0, mm0, random_array, weights) for tt0, mm0 in
-                                                     zip(tt.flatten(),
-                                                         mm.flatten()))
+                results = Parallel(n_jobs=num_cores,
+                                   backend='multiprocessing')(
+                    delayed(self.calculate_misfit_on_subset)(
+                        tt0, mm0, random_array, weights) for (tt0, mm0) in
+                    zip(tt.flatten(), mm.flatten()))
 
-                final_misfits = np.array(results).reshape(shape).T
+                final_misfits[k, :, :] = np.array(results).reshape(shape).T
 
 
             # find minimum

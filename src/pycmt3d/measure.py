@@ -481,9 +481,7 @@ def calculate_waveform_misfit_on_trace(obsd, synt, win_time,
         v1_array[_win_idx] = dt * _diff_energy_(obsd.data[istart:iend],
                                                 synt.data[istart:iend],
                                                 taper=taper)
-
-    var = {"v": v1_array}
-    return var
+    return v1_array
 
 
 def compute_new_syn_on_trwin(datalist, parlist, dcmt_par, dm):

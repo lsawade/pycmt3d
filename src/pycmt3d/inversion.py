@@ -17,9 +17,10 @@ import copy
 import os
 
 from . import logger
+from .config import Config
 from .cmt3d import Cmt3D
 from .source import CMTSource
-from .grid3d import Grid3d
+from .grid3d import Grid3d, Grid3dConfig
 from .data_container import DataContainer
 from .plot_util import PlotInvSummary
 import matplotlib.pyplot as plt
@@ -29,8 +30,8 @@ class Inversion(object):
 
     def __init__(self, cmtsource: CMTSource,
                  data_container: DataContainer,
-                 cmt3d_config: Cmt3D,
-                 grid3d_config: Grid3d):
+                 cmt3d_config: Config,
+                 grid3d_config: Grid3dConfig):
         """Class to run full inversion and generate output.
 
         :param cmt3d: cmt3d inversion class for the 6 moment tensor parameters

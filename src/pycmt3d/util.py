@@ -241,7 +241,6 @@ def timeshift_trace(tr: Trace, t0: float):
     N = len(tr.data)
     Nfix = nextpoweroftwo(N)
 
-    print(N, "to", Nfix)
     # Get frequency vector
     freq = np.fft.fftfreq(Nfix, d=tr.stats.delta)
 
@@ -249,3 +248,51 @@ def timeshift_trace(tr: Trace, t0: float):
     tr.data = np.real(scipy.ifft(
         scipy.fft(tr.data, n=Nfix)
         * np.exp(-1j*2*np.pi*freq*t0)))[0:N]
+
+def timeshift_trace_pad(tr: Trace, t0: float):
+    """Takes in a seismic trace and shifts it in time using the fft."""
+
+    N = len(tr.data)
+    Nfix = nextpoweroftwo(N)
+
+    # Get frequency vector
+    freq = np.fft.fftfreq(Nfix, d=tr.stats.delta)
+
+    # Compute timeshifted signal using fft
+    tr.data = np.real(scipy.ifft(
+        scipy.fft(tr.data, n=Nfix)
+        * np.exp(-1j*2*np.pi*freq*t0)))[0:N]
+
+
+def timeshift_trace(tr: Trace, t0: float):
+    """Takes in a seismic trace and shifts it in time using the fft."""
+
+    N = len(tr.data)
+
+    # Get frequency vector
+    freq = np.fft.fftfreq(N, d=tr.stats.delta)
+
+    # Compute timeshifted signal using fft
+    tr.data = np.real(scipy.ifft(
+        scipy.fft(tr.data) * np.exp(-1j*2*np.pi*freq*t0)))
+
+
+def timeshift_trace_roll_pad(tr: Trace, t0: float):
+    """Takes in a seismic trace and shifts it in time using the fft."""
+
+    N = len(tr.data)
+    nt0 = int(np.round(t0 / tr.stats.delta))
+
+    # Compute timeshifted signal using roll
+    tr.data = np.roll(np.pad(tr.data, (0, 1000), mode='constant',
+                             constant_values=(0, 0)), nt0)[0:-1000]
+
+def timeshift_trace_roll(tr: Trace, t0: float):
+    """Takes in a seismic trace and shifts it in time using the fft."""
+
+    N = len(tr.data)
+    nt0 = int(np.round(t0 / tr.stats.delta))
+
+    # Compute timeshifted signal using roll
+    tr.data = np.roll(tr.data, nt0)
+

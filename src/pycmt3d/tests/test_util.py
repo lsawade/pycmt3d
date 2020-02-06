@@ -130,7 +130,30 @@ def test_construct_taper_tukey():
     npt.assert_allclose(taper, result)
 
 
-def test_timeshift():
+def test_timeshift_pad():
+
+    # Read data
+    st = read(os.path.join(OBSD_DIR, "GSC.CI.BHT.sac.d"))
+    tr = st[0]
+
+    # define shift
+    t0 = 30.
+    nt0 = int(np.round(30/tr.stats.delta))
+
+    # shift trace
+    trshift = tr.copy()
+    util.timeshift_trace_pad(trshift, t0)
+
+    # compare
+    npt.assert_array_almost_equal(trshift.data,
+                                  np.roll(np.pad(tr.data, (0, nt0),
+                                                 mode='constant',
+                                                 constant_values=(0,
+                                                                  0)),
+                                          nt0)[0:-nt0],
+                                  decimal=9)
+
+def test_timshift():
 
     # Read data
     st = read(os.path.join(OBSD_DIR, "GSC.CI.BHT.sac.d"))
@@ -146,9 +169,47 @@ def test_timeshift():
 
     # compare
     npt.assert_array_almost_equal(trshift.data,
-                                  np.roll(np.pad(tr.data, (0, nt0),
+                                  np.roll(tr.data, nt0), decimal=9)
+
+def test_timeshift_roll():
+
+    # Read data
+    st = read(os.path.join(OBSD_DIR, "GSC.CI.BHT.sac.d"))
+    tr = st[0]
+
+    # define shift
+    t0 = 30.
+    nt0 = int(np.round(t0/tr.stats.delta))
+
+    # shift trace
+    trshift = tr.copy()
+    util.timeshift_trace_roll(trshift, t0)
+
+    # compare
+    npt.assert_array_almost_equal(trshift.data,
+                                  np.roll(tr.data, nt0),
+                                  decimal=9)
+
+
+def test_timeshift_roll_pad():
+
+    # Read data
+    st = read(os.path.join(OBSD_DIR, "GSC.CI.BHT.sac.d"))
+    tr = st[0]
+
+    # define shift
+    t0 = 30.
+    nt0 = int(np.round(t0/tr.stats.delta))
+
+    # shift trace
+    trshift = tr.copy()
+    util.timeshift_trace_roll_pad(trshift, t0)
+
+    # compare
+    npt.assert_array_almost_equal(trshift.data,
+                                  np.roll(np.pad(tr.data, (0, 700),
                                                  mode='constant',
                                                  constant_values=(0,
                                                                   0)),
-                                          nt0)[0:-nt0],
+                                          nt0)[0:-700],
                                   decimal=9)

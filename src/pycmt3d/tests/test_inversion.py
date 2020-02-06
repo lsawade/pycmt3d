@@ -108,4 +108,44 @@ def test_inversion(cmtsource, tmpdir):
     inv.source_inversion()
     inv.plot_summary(str(tmpdir))
 
-    assert 0
+if __name__ == "__main__":
+
+    outdir = "."
+    cmt = CMTSource.from_CMTSOLUTION_file(CMTFILE)
+
+    dcon = DataContainer(parlist=PARLIST[:9])
+    os.chdir(DATA_DIR)
+    window_file = os.path.join(DATA_DIR,
+                               "flexwin_T006_T030.output.two_stations")
+    dcon.add_measurements_from_sac(window_file, tag="T006_T030",
+                                   file_format="txt")
+
+    weight_config = DefaultWeightConfig(
+        normalize_by_energy=False, normalize_by_category=False,
+        comp_weight={"Z": 1.0, "R": 1.0, "T": 1.0},
+        love_dist_weight=1.0, pnl_dist_weight=1.0,
+        rayleigh_dist_weight=1.0, azi_exp_idx=0.5)
+
+    cmt3d_config = Config(9, dlocation=0.5, ddepth=0.5, dmoment=1.0e22,
+                          zero_trace=True, weight_data=True,
+                          station_correction=True,
+                          weight_config=weight_config,
+                          bootstrap=True, bootstrap_repeat=20,
+                          bootstrap_subset_ratio=0.4)
+
+
+    energy_keys = ["power_l1", "power_l2", "cc_amp", "chi"]
+
+    grid3d_config = Grid3dConfig(origin_time_inv=True, time_start=-5,
+                                 time_end=5,
+                                 dt_over_delta=5, energy_inv=True,
+                                 energy_start=0.5, energy_end=1.5,
+                                 denergy=0.1,
+                                 energy_keys=energy_keys,
+                                 energy_misfit_coef=[0.25, 0.25, 0.25, 0.25],
+                                 weight_data=True, weight_config=weight_config,
+                                 use_new=True)
+
+    inv = Inversion(cmt, dcon, cmt3d_config, grid3d_config)
+    inv.source_inversion()
+    inv.plot_summary(outdir)
