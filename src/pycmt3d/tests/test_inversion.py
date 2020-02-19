@@ -18,7 +18,7 @@ import inspect
 import os
 import pytest
 import matplotlib.pyplot as plt
-plt.switch_backend('agg')  # NOQA
+# plt.switch_backend('agg')  # NOQA
 from pycmt3d import DefaultWeightConfig, Config
 from pycmt3d.constant import PARLIST
 from pycmt3d import CMTSource
@@ -136,11 +136,11 @@ if __name__ == "__main__":
 
     energy_keys = ["power_l1", "power_l2", "cc_amp", "chi"]
 
-    grid3d_config = Grid3dConfig(origin_time_inv=True, time_start=-5,
-                                 time_end=5,
-                                 dt_over_delta=5, energy_inv=True,
-                                 energy_start=0.5, energy_end=1.5,
-                                 denergy=0.1,
+    grid3d_config = Grid3dConfig(origin_time_inv=True, time_start=-1.5,
+                                 time_end=1.5,
+                                 dt_over_delta=1, energy_inv=True,
+                                 energy_start=0.2, energy_end=1.8,
+                                 denergy=0.025,
                                  energy_keys=energy_keys,
                                  energy_misfit_coef=[0.25, 0.25, 0.25, 0.25],
                                  weight_data=True, weight_config=weight_config,
@@ -148,4 +148,7 @@ if __name__ == "__main__":
 
     inv = Inversion(cmt, dcon, cmt3d_config, grid3d_config)
     inv.source_inversion()
-    inv.plot_summary(outdir)
+    inv.plot_summary("/home/lsawade")
+    inv.plot_new_synt_seismograms("/home/lsawade/pycmt3d/seis")
+    inv.write_new_cmtfile("/home/lsawade/pycmt3d/seis")
+

@@ -249,6 +249,22 @@ def timeshift_trace(tr: Trace, t0: float):
         scipy.fft(tr.data, n=Nfix)
         * np.exp(-1j*2*np.pi*freq*t0)))[0:N]
 
+def timeshift_mat(M, t0: float, delta: float):
+    """Takes in a ismic trace and shifts it in time using the fft."""
+
+    N = M.shape[1]
+    Nfix = nextpoweroftwo(N)
+
+    # Get frequency vector
+    freq = np.fft.fftfreq(Nfix, d=delta)
+
+    # Compute timeshifted signal using fft
+    M = np.real(scipy.ifft(
+        scipy.fft(M, n=Nfix, axis=1)
+        * np.exp(-1j*2*np.pi*freq*t0)))[:, 0:N]
+
+    return M
+
 def timeshift_trace_pad(tr: Trace, t0: float):
     """Takes in a seismic trace and shifts it in time using the fft."""
 

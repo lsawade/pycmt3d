@@ -14,7 +14,6 @@ import os
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-plt.switch_backend('agg')
 from copy import deepcopy
 
 import multiprocessing
@@ -27,11 +26,12 @@ from .weight import Weight
 from .data_container import MetaInfo
 from .measure import calculate_variance_on_trace
 from .measure import calculate_waveform_misfit_on_trace
-from .plot_util import PlotStats
+from .measure import construct_matrices, compute_misfit, get_window_list
+# from .plot_util import PlotStats
 from .util import timeshift_trace
 from .util import random_select
 import time
-
+from .gradient3d import Gradient
 
 def del_line(n=1):
     """deletes one printed line."""
@@ -188,8 +188,11 @@ class Grid3d(object):
         # Run grid search
         self.grid_search_taM()
 
+        self.grid_search_origin_time()
+        self.grid_search_energy()
+
         # Run bootstrap statistic
-        self.grid_search_bootstrap()
+        # self.grid_search_bootstrap()
 
         # Output new data
         self.prepare_new_cmtsource()
@@ -197,6 +200,7 @@ class Grid3d(object):
 
         # Calculate variance reduction
         self.calculate_variance()
+
 
     def prepare_new_cmtsource(self):
         newcmt = deepcopy(self.cmtsource)
@@ -222,7 +226,16 @@ class Grid3d(object):
     def prepare_new_synthetic(self):
         logger.info("Reconstruct new synthetic seismograms...")
         for trwin in self.data_container:
-            new_synt = trwin.datalist["synt"].copy()
+            if self.config.use_new:
+                if "new_synt" not in trwin.datalist:
+                    raise ValueError("new synt is not in trwin(%s) "
+                                     "datalist: %s"
+                                     % (trwin, trwin.datalist.keys()))
+                else:
+                    new_synt = trwin.datalist["new_synt"].copy()
+            else:
+                new_synt = trwin.datalist["synt"].copy()
+
             if self.config.origin_time_inv:
                 new_synt.stats.starttime += self.t00_best
             if self.config.energy_inv:
@@ -296,10 +309,10 @@ class Grid3d(object):
         if min_idx == 0 or min_idx == (nt00 - 1):
             logger.warning("Origin time search hit boundary, which means"
                            "search range should be reset")
-
-        self.t00_best = t00_best
-        self.t00_array = t00_array
-        self.t00_misfit = final_misfits
+        self.time_best = t00_best
+        # self.t00_best = t00_best
+        # self.t00_array = t00_array
+        # self.t00_misfit = final_misfits
 
     def calculate_misfit_for_m00(self, m00):
         """Computes misfit for amplitude scaling."""
@@ -309,8 +322,21 @@ class Grid3d(object):
         chis = []
 
         for trwin in self.data_container:
-            obsd = trwin.datalist["obsd"]
-            synt = trwin.datalist["synt"].copy()
+            obsd = trwin.datalist["obsd"].copy()
+
+            if self.config.use_new:
+                if "new_synt" not in trwin.datalist:
+                    raise ValueError("new synt is not in trwin(%s) "
+                                     "datalist: %s"
+                                     % (trwin, trwin.datalist.keys()))
+                else:
+                    synt = trwin.datalist["new_synt"].copy()
+            else:
+                synt = trwin.datalist["synt"].copy()
+
+            # Using the updated timeshift
+            timeshift_trace(synt, self.time_best)
+
             synt.data *= m00
             measures = \
                 calculate_variance_on_trace(obsd, synt, trwin.windows)
@@ -334,7 +360,7 @@ class Grid3d(object):
         misfits = []
 
         for trwin in self.data_container:
-            obsd = trwin.datalist["obsd"]
+            obsd = trwin.datalist["obsd"].copy()
 
             if self.config.use_new:
                 if "new_synt" not in trwin.datalist:
@@ -357,6 +383,7 @@ class Grid3d(object):
 
         misfit = np.sum(np.array(misfits) * weights)
         return misfit
+
 
     def calculate_misfit_on_subset(self, m00, t0, subset, weights):
         """Computes misfit for amplitude scaling as well as timeshift."""
@@ -416,7 +443,7 @@ class Grid3d(object):
         t00_e = self.config.time_end
         dt00 = self.config.dt_over_delta * \
             self.data_container[0].datalist['obsd'].stats.delta
-
+        print(self.data_container[0].datalist['obsd'].stats.delta)
         logger.info("Time Start and End: [%8.3f, %8.3f]"
                     % (t00_s, t00_e))
         logger.info("Time Interval:%10.3f" % dt00)
@@ -443,11 +470,49 @@ class Grid3d(object):
             else:
                 weights = np.ones(len(self.data_container.nwindows))
 
+        obsd, synt, delta, tapers = construct_matrices(
+            self.data_container, weights, self.config.use_new)
+
+        logger.info("Gradient search:\n--------------------")
+        G = Gradient(obsd, synt, tapers, delta, method="n", crit=0.01, 
+                     nt=20, nls=20)
+        G.gradient()
+
+        self.dtf = G.dt
+        self.af = G.a
+        self.dt_list = G.dt_list
+        self.a_list = G.a_list
+        self.c_list = G.cost_list
+
+        logger.info("Timeshift found: %f" % G.dt)
+        logger.info("Amplitude found: %f" % G.a)
+        logger.info("Gradient iterations: %f" % G.it)
+
+        logger.info("Gauss Newton:\n--------------------")
+        GN = Gradient(obsd, synt, tapers, delta, method="n", crit=0.01, 
+                     nt=20, nls=20)
+        GN.gradient()
+
+        self.gndtf = GN.dt
+        self.gnaf = GN.a
+        self.gndt_list = GN.dt_list
+        self.gna_list = GN.a_list
+        self.gnc_list = GN.cost_list
+
+        self.m00_best = self.gnaf
+        self.t00_best = self.gndtf
+
+        logger.info("Timeshift found: %f" % GN.dt)
+        logger.info("Amplitude found: %f" % GN.a)
+        logger.info("Gradient iterations: %f" % GN.it)
+
+
+        # exit()
         N = nt00*nm00
         logger.info("Looping ....")
         logger.info("Number of iterations: %d" % N)
         counter = 0
-        num_cores = psutil.cpu_count(logical = False)
+        num_cores = psutil.cpu_count(logical=False)
         logger.info("Number of cores: %d" % num_cores)
         if num_cores == 1:
             for i in range(nt00):
@@ -456,8 +521,10 @@ class Grid3d(object):
                     t00 = self.t00_array[i]
                     m00 = self.m00_array[j]
 
-                    final_misfits[i, j] = self.calculate_misfit_on_grid(
-                        m00, t00, weights, counter, N)
+                    final_misfits[i, j] = compute_misfit(obsd, synt, tapers,
+                                                         m00, t00, delta,
+                                                         counter, N)
+                    print("misfit: ", final_misfits[i, j])
 
         else:
             tt, mm = np.meshgrid(self.t00_array, self.m00_array)
@@ -465,8 +532,9 @@ class Grid3d(object):
 
             results = Parallel(n_jobs=num_cores,
                                backend='multiprocessing')(delayed(
-                self.calculate_misfit_on_grid)(
-                tt0, mm0, weights, _i+1, N) for _i, (tt0, mm0) in
+                compute_misfit)(
+                obsd, synt, tapers, mm0, tt0,
+                delta, _i+1, N) for _i, (tt0, mm0) in
                 enumerate(zip(tt.flatten(), mm.flatten())))
 
             final_misfits = np.array(results).reshape(shape).T
@@ -490,8 +558,8 @@ class Grid3d(object):
                            "search range should be reset.")
         logger.info("Best M0: %6.3f" % m00_best)
 
-        self.m00_best = m00_best
-        self.t00_best = t00_best
+        self.m00_best_grid = m00_best
+        self.t00_best_grid = t00_best
 
         self.misfit_grid = final_misfits
         # self.cat_misfit_grid = cat_misfits
@@ -699,10 +767,12 @@ class Grid3d(object):
             logger.warning("Energy search reaches boundary, which means the"
                            "search range should be reset")
         logger.info("best m00: %6.3f" % m00_best)
-        self.m00_best = m00_best
-        self.m00_array = m00_array
-        self.m00_misfit = final_misfits
-        self.m00_cat_misfit = cat_misfits
+
+        self.energy_best = m00_best
+        # self.m00_best = m00_best
+        # self.m00_array = m00_array
+        # self.m00_misfit = final_misfits
+        # self.m00_cat_misfit = cat_misfits
 
     def write_new_cmtfile(self, outputdir="."):
         suffix = "grid"
@@ -838,16 +908,42 @@ class Grid3d(object):
             plt.figure()
             ax = plt.axes()
 
-        ctf = ax.contourf(tt, (mm - 1) * 100,
-                           self.misfit_grid.T,
-                           cmap='Greys')
-        ax.plot(self.t00_array[min_t_idx],
-                (self.m00_array[min_m_idx] - 1) * 100,
+        ctf = ax.pcolormesh(tt, (mm - 1) * 100,
+                           np.log10(self.misfit_grid.T),
+                           cmap='Greys', edgecolor=None)
+        ax.plot(self.time_best * np.ones_like(self.m00_array),
+                (self.m00_array - 1) * 100, "k--",
+                self.t00_array,
+                (self.energy_best * np.ones_like(self.t00_array) - 1) * 100,
+                "k--", lw=0.5)
+        ax.plot(0, 0, "ks", markeredgecolor='k',
+                markersize=5, label="start", zorder=10)
+        ax.plot(self.t00_best_grid,
+                (self.m00_best_grid - 1) * 100,
+                "w*", markeredgecolor='k',
+                 markersize=10, label="grid")
+        ax.plot(np.array(self.dt_list), (np.array(self.a_list) - 1.) * 100.,
+                "r")
+        ax.plot(np.array(self.gndt_list), (np.array(self.gna_list) - 1.) * 100.,
+                "b")
+        ax.plot(self.dtf,
+                (self.af - 1.) * 100.,
                 "r*", markeredgecolor='k',
-                 markersize=20, label="Min Misfit")
+                markersize=10, label="Hessian")
+        ax.plot(self.gndtf,
+                (self.gnaf - 1.) * 100.,
+                "b*", markeredgecolor='k',
+                markersize=10, label="GN")
+        ax.plot(self.time_best, (self.energy_best - 1) * 100,
+                "k*", markeredgecolor='k',
+                markersize=10, label="Line")
+
+
+        plt.legend(prop={'size': 6}, fancybox=False, framealpha=1)
+
         plt.colorbar(ctf)
         ax.set_xlabel("$\\Delta t$")
-        ax.set_ylabel("%% Change in $M_0$")
+        ax.set_ylabel("% Change in $M_0$")
 
         if figurename is None:
             pass
@@ -855,3 +951,30 @@ class Grid3d(object):
             plt.show()
         else:
             plt.savefig(figurename)
+
+    def plot_cost(self, figurename=None):
+
+        if figurename is None:
+            ax = plt.gca()
+
+        else:
+            plt.figure()
+            ax = plt.axes()
+
+        ax.plot(self.c_list, "r",
+                label="Hessian ($\mathcal{C}_{min} = %.3f$)" % self.c_list[-1])
+        ax.plot(self.gnc_list, "b",
+                label="GN  ($\mathcal{C}_{min} = %.3f)$" % self.gnc_list[-1])
+
+        plt.legend(prop={'size': 6}, fancybox=False, framealpha=1)
+
+        ax.set_xlabel("Iteration #")
+        ax.set_ylabel("Misfit reduction")
+
+        if figurename is None:
+            pass
+        elif figurename == 'show':
+            plt.show()
+        else:
+            plt.savefig(figurename)
+            

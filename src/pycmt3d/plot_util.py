@@ -15,6 +15,8 @@ from collections import defaultdict
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+
+plt.switch_backend("agg")
 import matplotlib.gridspec as gridspec
 from matplotlib.patches import Rectangle
 from matplotlib.collections import LineCollection
@@ -29,8 +31,11 @@ import matplotlib.ticker as mticker
 from cartopy.crs import PlateCarree
 import cartopy
 
+# From pycmt3d
 from .geo_data_util import GeoMap
-
+from .data_container import DataContainer, TraceWindow
+from .grid3d import Grid3d
+from .gradient import Gradient
 from . import logger
 from .util import get_cmt_par, get_trwin_tag
 from .measure import _envelope
@@ -39,7 +44,54 @@ from .measure import _envelope
 EARTH_HC, _, _ = gps2dist_azimuth(0, 0, 0, 180)
 
 
-def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
+def get_new_locations(lat1, lon1, lat2, lon2, padding):
+    """ Get new plodding locations
+
+    :param lat1: Old cmt lat
+    :param lon1: Old cmt lon
+    :param lat2: New cmt lat
+    :param lon2: New cmt lon
+    :param az: azimuth
+    :param padding: padding
+    :return: newlat1, newlon1, newlat2, newlon2
+    """
+
+    # Get aziumth
+    _, az, _ = gps2dist_azimuth(lat1, lon1,
+                                lat2, lon2)
+
+    # length of corner placement:
+    dx = 1.2 * padding
+
+    if 0 <= az < 90:
+        newlat1 = lat1 - dx
+        newlon1 = lon1 - dx
+        newlat2 = lat1 + dx
+        newlon2 = lon1 + dx
+
+    elif 90 <= az < 180:
+        newlat1 = lat1 - dx
+        newlon1 = lon1 + dx
+        newlat2 = lat1 + dx
+        newlon2 = lon1 - dx
+
+    elif 180 <= az < 270:
+        newlat1 = lat1 + dx
+        newlon1 = lon1 + dx
+        newlat2 = lat1 - dx
+        newlon2 = lon1 - dx
+
+    else:
+        newlat1 = lat1 + dx
+        newlon1 = lon1 - dx
+        newlat2 = lat1 - dx
+        newlon2 = lon1 + dx
+
+    return newlat1, newlon1, newlat2, newlon2
+
+
+def _plot_new_seismogram_sub(trwin: TraceWindow, outputdir, 
+                             cmtsource, figure_format):
     obsd = trwin.datalist['obsd']
     synt = trwin.datalist['synt']
     new_synt = trwin.datalist['new_synt']
@@ -51,12 +103,19 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
     outputfig = os.path.join(outputdir, "%s.%s.%s.%s.%s" % (
         network, station, location, channel, figure_format))
 
+    # Times and offsets computed individually, since the grid search applies
+    # a timeshift which changes the times of the traces.
     if cmtsource is None:
         offset = 0
     else:
         offset = obsd.stats.starttime - cmtsource.cmt_time
-    times = [offset + obsd.stats.delta*i for i in range(obsd.stats.npts)]
-
+        offset_synt = synt.stats.starttime - cmtsource.cmt_time
+        offset_new = new_synt.stats.starttime - cmtsource.cmt_time
+    times = [offset + obsd.stats.delta * i for i in range(obsd.stats.npts)]
+    times_synt = [offset_synt + synt.stats.delta * i
+                  for i in range(synt.stats.npts)]
+    times_new = [offset_new + new_synt.stats.delta * i
+                 for i in range(new_synt.stats.npts)]
     fig = plt.figure(figsize=(15, 5))
 
     plt.rcParams.update({'font.size': 13,
@@ -66,9 +125,9 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
     ax1 = plt.subplot(211)
     ax1.plot(times, obsd.data, color="black", linewidth=0.8, alpha=0.6,
              label="obsd")
-    ax1.plot(times, synt.data, color="red", linewidth=1,
+    ax1.plot(times_synt, synt.data, color="red", linewidth=1,
              label="synt")
-    ax1.plot(times, new_synt.data, color="blue", linewidth=1,
+    ax1.plot(times_new, new_synt.data, color="blue", linewidth=1,
              label="new synt")
     ax1.set_xlim(times[0], times[-1])
     ax1.legend(loc='upper right', frameon=False, ncol=3, prop={'size': 11})
@@ -116,7 +175,7 @@ def _plot_new_seismogram_sub(trwin, outputdir, cmtsource, figure_format):
     plt.close(fig)
 
 
-def plot_seismograms(data_container, outputdir, cmtsource=None,
+def plot_seismograms(data_container: DataContainer, outputdir, cmtsource=None,
                      figure_format="png"):
     """
     Plot the new synthetic and old synthetic data together with data.
@@ -139,7 +198,7 @@ def plot_seismograms(data_container, outputdir, cmtsource=None,
 class PlotStats(object):
     """ plot histogram utils"""
 
-    def __init__(self, data_container, metas, outputfn):
+    def __init__(self, data_container: DataContainer, metas, outputfn):
         self.data_container = data_container
         self.metas = metas
         self.outputfn = outputfn
@@ -180,10 +239,10 @@ class PlotStats(object):
             ax_max = abs_max
         binwidth = (ax_max - ax_min) / num_bin
         plt.hist(
-            data_b, bins=np.arange(ax_min, ax_max+binwidth/2., binwidth),
+            data_b, bins=np.arange(ax_min, ax_max + binwidth / 2., binwidth),
             facecolor='blue', alpha=0.3)
         plt.hist(
-            data_a, bins=np.arange(ax_min, ax_max+binwidth/2., binwidth),
+            data_a, bins=np.arange(ax_min, ax_max + binwidth / 2., binwidth),
             facecolor='green', alpha=0.5)
 
     def extract_metadata(self, cat_name, meta_varname):
@@ -228,7 +287,7 @@ class PlotStats(object):
         nrows = len(self.metas_sort.keys())
         ncols = len(vtype_list)
 
-        plt.figure(figsize=(4*ncols, 4*nrows))
+        plt.figure(figsize=(4 * ncols, 4 * nrows))
         G = gridspec.GridSpec(nrows, ncols)
 
         cat_names = sorted(self.metas_sort.keys())
@@ -245,7 +304,31 @@ class PlotInvSummary(object):
                  nregions=12, new_cmtsource=None, bootstrap_mean=None,
                  bootstrap_std=None, M0_stats=None, var_reduction=0.0,
                  mode="regional", grid3d=None):
-        self.data_container = data_container
+        """ Plots inversion summary with all necessary information.
+        
+        Args:
+            data_container (pycmt3d.data_container.DataContainer or dict): 
+            The datacontainer is the full fata container used in the inversion
+            itself. Defaults to None.
+            cmtsource (pycmt3d.source.CMTSource): original cmtsource. Defaults to None.
+            config (pycmt3d.config.Config, optional): Configuration class 
+                                                    used for the inversion. 
+                                                    Defaults to None.
+            nregions (int, optional): Number of bins in the station and window
+                                    histograms. Defaults to 12.
+            new_cmtsource (pycmt3d.source.CMTSource): inverted cmtsolution.
+                                                    Defaults to None.
+            bootstrap_mean (numpy.ndarray, optional): Bootstrap mean. Defaults to None
+            bootstrap_std (numpy.ndarray): bootstrap std. Defaults to None.
+            M0_stats (numpy.ndarray, optional): statistics on gradient method.
+            var_reduction (float, optional): Variance reduction overwrite. Defaults to 0.0.
+            mode (str, optional): Plot mode. Defaults to "regional".
+            grid3d (pycmt3d.grid3d.Grid3d), optional): [description]. Defaults to None.
+        """
+
+        if type(data_container) == DataContainer:
+            self.data_container = data_container
+            self.nwindows = data_container
         self.cmtsource = cmtsource
         self.trwins = data_container.trwins
         self.config = config
@@ -288,7 +371,7 @@ class PlotInvSummary(object):
                 self.sta_dist.append(dist / 1000.0)
             elif self.mode == "global":
                 # if global, then use degree as unit
-                self.sta_dist.append(dist/EARTH_HC)
+                self.sta_dist.append(dist / EARTH_HC)
 
     def get_azimuth_bin_number(self, azimuth):
         """
@@ -314,8 +397,8 @@ class PlotInvSummary(object):
 
         :return:
         """
-        delta = 2*np.pi/self.nregions
-        bins = [delta*i for i in range(self.nregions)]
+        delta = 2 * np.pi / self.nregions
+        bins = [delta * i for i in range(self.nregions)]
 
         naz_wins = np.zeros(self.nregions)
         for azimuth in azimuth_array:
@@ -343,7 +426,7 @@ class PlotInvSummary(object):
                % (cmt.latitude, cmt.longitude)
         plt.text(-0.9, -0.5, text, fontsize=9)
         # depth
-        text = "dep=%6.3f km;" % (cmt.depth_in_m/1000.0)
+        text = "dep=%6.3f km;" % (cmt.depth_in_m / 1000.0)
         plt.text(-0.9, -0.7, text, fontsize=9)
         ax.set_xticks([])
         ax.set_yticks([])
@@ -365,16 +448,16 @@ class PlotInvSummary(object):
         ax.set_aspect('equal')
         # magnitude
         text = r"$\Delta$Mw=%4.3f" % (
-            cmt.moment_magnitude-cmt_init.moment_magnitude)
+                cmt.moment_magnitude - cmt_init.moment_magnitude)
         plt.text(-0.9, -0.3, text, fontsize=9)
         # lat and lon
         text = r"$\Delta$lat=%6.3f$^\circ$; $\Delta$lon=%6.3f$^\circ$" \
-               % (cmt.latitude-cmt_init.latitude,
-                  cmt.longitude-cmt_init.longitude)
+               % (cmt.latitude - cmt_init.latitude,
+                  cmt.longitude - cmt_init.longitude)
         plt.text(-0.9, -0.5, text, fontsize=9)
         # depth
         text = r"$\Delta$dep=%6.3f km;" % (
-            (cmt.depth_in_m-cmt_init.depth_in_m)/1000.0)
+                (cmt.depth_in_m - cmt_init.depth_in_m) / 1000.0)
         plt.text(-0.9, -0.7, text, fontsize=9)
         ax.set_xticks([])
         ax.set_yticks([])
@@ -387,7 +470,7 @@ class PlotInvSummary(object):
         std_over_mean = np.zeros(par_mean.shape)
         for _i in range(par_mean.shape[0]):
             if par_mean[_i] != 0:
-                std_over_mean[_i] = par_std[_i]/np.abs(par_mean[_i])
+                std_over_mean[_i] = par_std[_i] / np.abs(par_mean[_i])
             else:
                 std_over_mean[_i] = 0.0
         fontsize = 9
@@ -428,12 +511,12 @@ class PlotInvSummary(object):
             (self.new_cmtsource.M0 - self.cmtsource.M0) / self.cmtsource.M0
         text = "Inversion Damping: %6.3f    Energy Change: %7.2f%%" \
                "    Variance Reduction: %6.2f%%" \
-               % (self.config.damping, energy_change*100,
-                  self.var_reduction*100)
+               % (self.config.damping, energy_change * 100,
+                  self.var_reduction * 100)
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
         pos -= incre
-        text = "-"*32 + "   Summary Table   " + "-"*32
+        text = "-" * 32 + "   Summary Table   " + "-" * 32
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
         pos -= incre
@@ -472,9 +555,9 @@ class PlotInvSummary(object):
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         text = "DEP:" + format3 % (
-               self.cmtsource.depth_in_m/1000,
-               self.new_cmtsource.depth_in_m/1000,
-               par_mean[6]/1000, par_std[6]/1000, std_over_mean[6] * 100)
+            self.cmtsource.depth_in_m / 1000,
+            self.new_cmtsource.depth_in_m / 1000,
+            par_mean[6] / 1000, par_std[6] / 1000, std_over_mean[6] * 100)
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         text = "LAT:" + format4 % (
@@ -483,16 +566,16 @@ class PlotInvSummary(object):
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         text = "LON:" + format4 % (
-               self.cmtsource.longitude, self.new_cmtsource.longitude,
-               par_mean[7], par_std[7], std_over_mean[7] * 100)
+            self.cmtsource.longitude, self.new_cmtsource.longitude,
+            par_mean[7], par_std[7], std_over_mean[7] * 100)
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         text = "Grid Search Parameters:"
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         text = "CMT:" + format2 % (
-               self.cmtsource.time_shift, self.new_cmtsource.time_shift,
-               par_mean[9], par_std[9], par_std[9]/par_mean[9] * 100)
+            self.cmtsource.time_shift, self.new_cmtsource.time_shift,
+            par_mean[9], par_std[9], par_std[9] / par_mean[9] * 100)
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
@@ -500,7 +583,7 @@ class PlotInvSummary(object):
             text = "M0: " + format1 % (
                 self.cmtsource.M0, self.new_cmtsource.M0,
                 self.M0_stats[0], self.M0_stats[1],
-                self.M0_stats[1]/self.M0_stats[0] * 100)
+                self.M0_stats[1] / self.M0_stats[0] * 100)
             pos -= incre
             plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
@@ -594,9 +677,9 @@ class PlotInvSummary(object):
         bins, naz = self.calculate_azimuth_bin(azimuth_array)
         norm_factor = np.max(naz)
 
-        bars = plt.bar(bins, naz, width=(bins[1]-bins[0]), bottom=0.0)
+        bars = plt.bar(bins, naz, width=(bins[1] - bins[0]), bottom=0.0)
         for r, bar in zip(naz, bars):
-            bar.set_facecolor(plt.cm.jet(r/norm_factor))
+            bar.set_facecolor(plt.cm.jet(r / norm_factor))
             bar.set_alpha(0.5)
             bar.set_linewidth(0.3)
         # ax.set_xticklabels([])
@@ -616,9 +699,9 @@ class PlotInvSummary(object):
         bins, naz = self.calculate_azimuth_bin(win_azi)
         norm_factor = np.max(naz)
 
-        bars = plt.bar(bins, naz, width=(bins[1]-bins[0]), bottom=0.0)
+        bars = plt.bar(bins, naz, width=(bins[1] - bins[0]), bottom=0.0)
         for r, bar in zip(naz, bars):
-            bar.set_facecolor(plt.cm.jet(r/norm_factor))
+            bar.set_facecolor(plt.cm.jet(r / norm_factor))
             bar.set_alpha(0.5)
             bar.set_linewidth(0.3)
         # ax.set_xticklabels([])
@@ -638,7 +721,7 @@ class PlotInvSummary(object):
         g = gridspec.GridSpec(2, 3)
         plt.subplot(g[0, :-1], projection=PlateCarree(0.0))
         self.plot_global_map()
-        plt.subplot(g[1, 0],  polar=True)
+        plt.subplot(g[1, 0], polar=True)
         self.plot_sta_dist_azi()
         plt.subplot(g[1, 1], polar=True)
         self.plot_sta_azi()
@@ -666,7 +749,8 @@ class PlotInvSummary(object):
                   coordinates]
 
         ax = plt.gca()
-        lc = LineCollection(faults, colors=(0, 0, 0), zorder=150)
+        lc = LineCollection(faults, colors=(0, 0, 0), zorder=150,
+                            lw=0.5)
         ax.add_collection(lc)
 
     def plot_mini_map(self):
@@ -676,8 +760,6 @@ class PlotInvSummary(object):
         # Get CMT location
         cmt_lat = self.cmtsource.latitude
         cmt_lon = self.cmtsource.longitude
-        new_cmt_lat = self.new_cmtsource.latitude
-        new_cmt_lon = self.new_cmtsource.longitude
 
         padding = 1
         minlon = cmt_lon - padding
@@ -692,10 +774,10 @@ class PlotInvSummary(object):
         ax.outline_patch.set_linewidth(0.75)
 
         lon_tick = np.arange(np.floor(minlon) - padding,
-                             np.ceil(maxlon) + padding,
+                             np.ceil(maxlon) + 1.51 * padding,
                              padding / 2)
         lat_tick = np.arange(np.floor(minlat) - padding,
-                             np.ceil(maxlat) + padding,
+                             np.ceil(maxlat) + 1.51 * padding,
                              padding / 2)
 
         # Set gridlines. NO LABELS HERE, there is a bug in the gridlines
@@ -720,22 +802,59 @@ class PlotInvSummary(object):
         ax.set_yticklabels(ax.get_yticklabels(), fontdict=font_dict)
 
         # ax.add_feature(cartopy.feature.COASTLINE, lw=2,
-        ax.coastlines(color='black', lw=2, zorder=200)
+        ax.coastlines(color='black', lw=1, zorder=200)
 
         # Plot stations
         ax.scatter(self.sta_lon, self.sta_lat, 30, color="r", marker="^",
-                   edgecolor="k", linewidth='0.3', zorder=3)
+                   edgecolor="k", linewidth='0.4', zorder=201)
 
+        # Plot beachballs
+        self.plot_beachballs(minlon, maxlon, minlat, maxlat, padding)
+
+    def plot_beachballs(self, minlon, maxlon, minlat, maxlat, padding):
+
+        ax = plt.gca()
+
+        # Beachball width
         width_beach = min((maxlon + 2 * padding - minlon) / (5 * padding),
                           (maxlat + 2 * padding - minlat) / (5 * padding))
 
+        # Get CMT location
+        cmt_lat = self.cmtsource.latitude
+        cmt_lon = self.cmtsource.longitude
+
+        # Get new location
+        new_cmt_lat = self.new_cmtsource.latitude
+        new_cmt_lon = self.new_cmtsource.longitude
+
+        # Correct plotting locations
+        oldlat, oldlon, newlat, newlon, = \
+            get_new_locations(cmt_lat, cmt_lon,
+                              new_cmt_lat, new_cmt_lon,
+                              padding)
+
+        # Plot points
+        markersize=7.5
+        ax.plot(cmt_lon, cmt_lat, "k.", zorder=200,
+                markersize=markersize)
+        ax.plot(new_cmt_lon, new_cmt_lat, "k.", zorder=200,
+                markersize=markersize)
+
+        # Plot lines
+        ax.plot([cmt_lon, oldlon], [cmt_lat, oldlat], "k", zorder=199)
+        ax.plot([new_cmt_lon, newlon], [new_cmt_lat, newlat], "k", zorder=199)
+
+        # Old CMT
+        ax = plt.gca()
         focmecs = get_cmt_par(self.cmtsource)[:6]
-        bb = beach(focmecs, xy=(cmt_lon, cmt_lat),
+        bb = beach(focmecs, xy=(oldlon, oldlat),
                    width=width_beach, linewidth=1, alpha=1.0, zorder=250)
         ax.add_collection(bb)
+
+        # New CMT
         new_focmecs = get_cmt_par(self.new_cmtsource)[:6]
         new_bb = beach(new_focmecs, facecolor='r',
-                       xy=(new_cmt_lon, new_cmt_lat), width=width_beach,
+                       xy=(newlon, newlat), width=width_beach,
                        linewidth=1, alpha=1.0, zorder=250)
         ax.add_collection(new_bb)
 
@@ -794,20 +913,31 @@ class PlotInvSummary(object):
         if self.new_cmtsource is None:
             raise ValueError("No new cmtsource...Can't plot summary")
 
-        plt.figure(figsize=(10, 10.5), facecolor='w', edgecolor='k',
-                   tight_layout=True)
+        fig = plt.figure(figsize=(10, 10.5), facecolor='w', edgecolor='k',
+                         tight_layout=True)
         g = gridspec.GridSpec(3, 3)
+
+        # Global map
         plt.subplot(g[0, :-1], projection=PlateCarree())
         self.plot_global_map()
+
+        # Grid search or stations vz distance and azimuth
         if self.grid3d is None:
-            plt.subplot(g[1, 0],  polar=True)
+            plt.subplot(g[1, 0], polar=True)
             self.plot_sta_dist_azi()
         else:
             plt.subplot(g[1, 0])
             self.grid3d.plot_grid()
 
-        plt.subplot(g[1, 1], polar=True)
-        self.plot_sta_azi()
+        # Misfit reduction of gridsearch or station azimuth histogram
+        if self.grid3d is None:
+            plt.subplot(g[1, 1], polar=True)
+            self.plot_sta_azi()
+        else:
+            plt.subplot(g[1, 1])
+            self.grid3d.plot_cost()
+
+        # Plot window azimuth histogram
         plt.subplot(g[1, 2], polar=True)
         self.plot_win_azi()
         ax = plt.subplot(g[0, 2], projection=PlateCarree())
@@ -821,8 +951,9 @@ class PlotInvSummary(object):
                              "Inversion")
         plt.subplot(g[2, :-1])
         self.plot_table()
-        # fig.canvas.draw()
-        # plt.tight_layout()
+        fig.canvas.draw()
+        plt.tight_layout()
+        # plt.savefig("/Users/lucassawade/test.pdf")
         if figurename is None:
             plt.show()
         else:

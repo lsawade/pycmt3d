@@ -15,6 +15,8 @@ from scipy.signal import hilbert
 
 from .util import construct_taper, check_trace_consistent, get_window_idx
 from . import constant
+from . import logger
+from .util import timeshift_mat
 
 
 def _envelope(array):
@@ -483,6 +485,103 @@ def calculate_waveform_misfit_on_trace(obsd, synt, win_time,
                                                 taper=taper)
     return v1_array
 
+def calculate_waveform_timeshift_on_data(obsd, synt, dt, win_time):
+    """
+    Calculate the variance reduction on a pair of obsd and
+    synt and windows
+
+    :param obsd: observed data trace
+    :type obsd: :class:`obspy.core.trace.Trace`
+    :param synt: synthetic data trace
+    :type synt: :class:`obspy.core.trace.Trace`
+    :param win_time: [win_start, win_end]
+    :type win_time: :class:`list` or :class:`numpy.array`
+    :return:  L2 waveform misfit on trace windows
+    :rtype: [float, float]
+    """
+
+    win_time = np.array(win_time)
+    num_wins = win_time.shape[0]
+
+    xnt = np.zeros(num_wins)
+
+    for _win_idx in range(win_time.shape[0]):
+        istart, iend = get_window_idx(win_time[_win_idx], dt)
+
+        _, xnt[_win_idx] = _xcorr_win_(obsd[istart:iend],
+                                       synt[istart:iend])
+    return np.mean(xnt) * dt
+
+
+def compute_timeshift(obsd, synt, windows, delta):
+
+    dts = np.zeros(obsd.shape[0])
+
+    for _i, (obs, syn, win) in enumerate(zip(obsd, synt, windows)):
+
+        dts[_i] = calculate_waveform_timeshift_on_data(obs, syn, delta, win)
+
+    return np.mean(dts)
+
+def compute_ratio(obsd, synt, tapers):
+    return np.sqrt(np.mean(np.sum(obsd ** 2 * tapers, axis=-1)
+                   /np.sum(synt ** 2 * tapers, axis=-1)))
+
+
+
+def construct_matrices(data_container, weights, use_new):
+    """Computes amplitude and cross correlation misfit for moment scaling
+    as well as timeshift."""
+
+    npts = data_container[0].datalist['obsd'].stats.npts
+    delta = data_container[0].datalist['obsd'].stats.delta
+    nwin = len(data_container.trwins)
+
+    obsd = np.zeros((nwin, npts))
+    synt = np.zeros((nwin, npts))
+
+    tapers = np.zeros((nwin, npts))
+
+    counter = 0
+
+    for _k, trwin in enumerate(data_container):
+        obsd[_k, :] = trwin.datalist["obsd"].data
+
+        if use_new:
+            if "new_synt" not in trwin.datalist:
+                raise ValueError("new synt is not in trwin(%s) "
+                                 "datalist: %s"
+                                 % (trwin, trwin.datalist.keys()))
+            else:
+                synt[_k, :] = trwin.datalist["new_synt"].copy()
+        else:
+            synt[_k, :] = trwin.datalist["synt"].data
+
+        for _win_idx in range(trwin.windows.shape[0]):
+            istart, iend = get_window_idx(trwin.windows[_win_idx],
+                                          delta)
+
+            tapers[_k, istart:iend] = \
+                construct_taper(iend - istart, taper_type='hann') \
+                * weights[counter]
+            counter += 1
+    print("tapers:\n", np.where(tapers != 0))
+    print("obsd:\n", synt)
+    print("synt:\n", obsd)
+
+    return obsd, synt, delta, tapers
+
+def get_window_list(data_container):
+    windows = []
+    for _k, trwin in enumerate(data_container):
+        windows.append(trwin.windows)
+    return windows
+
+def compute_misfit(obsd, synt, tapers, m0, t0, delta, counter, N):
+
+    # logger.info("%d/%d" % (counter, N))
+    return np.sum(tapers * (obsd - timeshift_mat(synt*m0, t0, delta)) ** 2,
+                  axis=None)
 
 def compute_new_syn_on_trwin(datalist, parlist, dcmt_par, dm):
     """

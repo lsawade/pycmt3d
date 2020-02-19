@@ -153,7 +153,34 @@ def test_timeshift_pad():
                                           nt0)[0:-nt0],
                                   decimal=9)
 
-def test_timshift():
+
+def test_timeshift_mat():
+
+    # Read data
+    st = read(os.path.join(OBSD_DIR, "GSC.CI.BHT.sac.d"))
+    tr = st[0]
+
+    m = np.vstack((tr.data, tr.data))
+
+    print(m.shape)
+
+    # define shift
+    t0 = 30.
+    nt0 = int(np.round(30/tr.stats.delta))
+
+    # shift trace
+    mshift = util.timeshift_mat(m, t0, tr.stats.delta)
+    print(mshift.shape)
+
+    # compare
+    npt.assert_array_almost_equal(mshift,
+                                  np.roll(np.pad(m, ((0, 0), (0, nt0)),
+                                                 mode='constant',
+                                                 constant_values=0),
+                                          nt0, axis=-1)[:, 0:-nt0],
+                                  decimal=9)
+
+def test_timeshift():
 
     # Read data
     st = read(os.path.join(OBSD_DIR, "GSC.CI.BHT.sac.d"))
