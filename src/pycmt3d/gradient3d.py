@@ -346,7 +346,9 @@ class Gradient3d(object):
         bootstrap_cost_lists = []
         maxlen = 0
         for _i in range(self.config.bootstrap_repeat):
-
+            
+            logger.info("Bootstrap Repeat: %d/%d" 
+                        % (_i, self.config.bootstrap_repeat))
             # Get random array
             random_array = np.random.choice(ntraces, n_subset, 
                                             replace=True)

@@ -15,6 +15,7 @@ Last Update: January 2020
 
 import copy
 import os
+import numpy as np
 
 from . import logger
 from .config import Config
@@ -25,6 +26,7 @@ from .gradient3d import Gradient3d, Gradient3dConfig
 from .data_container import DataContainer
 from .plot_util import PlotInvSummary, plot_seismograms
 import matplotlib.pyplot as plt
+from .util import dump_json
 
 
 class Inversion(object):
@@ -144,7 +146,7 @@ class Inversion(object):
         plot_util.plot_inversion_summary(figurename=figurename)
 
 
-    def write_summary_json(self, outputdir="."):
+    def write_summary_json(self, outputdir=".", mode="global"):
         """This function uses all computed statistics and outputs a json
         file. Content will include the statistics table.
         cost reduction in. """
@@ -161,29 +163,44 @@ class Inversion(object):
         outputfn = os.path.join(outputdir, outputfn)
         filename = outputfn
 
-        logger.info("Source inversion summary file: %s" % figurename)
+        logger.info("Source inversion summary file: %s" % filename)
 
         outdict = dict()
 
         outdict["oldcmt"] = self.cmtsource.__dict__
         outdict["newcmt"] = self.new_cmtsource.__dict__
-        outdict["sta_lat"] = [window.latitude for window in self.data_container.trwins]
-        outdict["sta_lon"] = [window.longitude for window in self.data_container.trwins]
+        print(type([window.latitude for window in self.data_container.trwins]))
+        outdict["sta_lat"] = np.array([window.latitude for window in self.data_container.trwins]).tolist()
+        outdict["sta_lon"] = np.array([window.longitude for window in self.data_container.trwins]).tolist()
         outdict["nwindows"] = self.data_container.nwindows
+        outdict["nwin_on_trace"] = np.array([window.nwindows for window in self.data_container.trwins]).tolist()
 
-        outdict["bootstrap_mean"] = self.cmt3d.par_mean
-        outdict["bootstrap_std"] = self.cmt3d.par_std
+        outdict["bootstrap_mean"] = self.cmt3d.par_mean.tolist()
+        outdict["bootstrap_std"] = self.cmt3d.par_std.tolist()
 
         outdict["nregions"] = self.cmt3d_config.weight_config.azi_bins
-        
-        outdict["G"] = {"a": self.G.a,
-                        "dt": self.G.dt,
-                        "method": self.G.config.method,
-                        "bootstrap_mean": self.G.bootstrap_mean,
-                        "bootstrap_std": self.G.bootstrap_std,
+
+        outdict["var_reduction"] = self.G.var_reduction
+    
+        outdict["G"] = {"method": self.G.config.method,
+                        "tshift": self.G.t00_best,
+                        "ascale": self.G.m00_best,
+                        "bootstrap_mean": self.G.bootstrap_mean.tolist(),
+                        "bootstrap_std": self.G.bootstrap_std.tolist(),
                         "chi_list": self.G.chi_list,
-                        "meancost_array": self.G.meancost_array,
-                        "stdcost_array": self.G.stdcost_array,
-                        "maxcost_array": self.G.maxcost_array,
-                        "mincost_array": self.G.mincost_array}
-        outdict["config"] = {}
+                        "meancost_array": self.G.meancost_array.tolist(),
+                        "stdcost_array": self.G.stdcost_array.tolist(),
+                        "maxcost_array": self.G.maxcost_array.tolist(),
+                        "mincost_array": self.G.mincost_array.tolist()}
+        outdict["config"] = {"envelope_coef": self.cmt3d_config.envelope_coef,
+                             "npar": self.cmt3d_config.npar, 
+                             "zero_trace": self.cmt3d_config.zero_trace,
+                             "double_couple": self.cmt3d_config.double_couple,
+                             "station_correction": self.cmt3d_config.station_correction,
+                             "damping": self.cmt3d.config.damping,
+                             "weight_config": 
+                             {"normalize_by_energy": self.cmt3d_config.weight_config.normalize_by_energy,
+                             "normalize_by_category": self.cmt3d_config.weight_config.normalize_by_category}}
+        outdict["mode"] = mode
+
+        dump_json(outdict, filename)

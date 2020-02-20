@@ -158,6 +158,7 @@ if __name__ == "__main__":
                                      bootstrap_subset_ratio=0.4)
     inv = Inversion(cmt, dcon, cmt3d_config, grad3d_config)
     inv.source_inversion()
+    inv.write_summary_json("/home/lsawade")
     inv.plot_summary("/home/lsawade")
     inv.plot_new_synt_seismograms("/home/lsawade/pycmt3d/seis")
     inv.write_new_cmtfile("/home/lsawade/pycmt3d/seis")

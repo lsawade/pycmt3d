@@ -16,12 +16,36 @@ from scipy import signal
 from obspy.geodetics import locations2degrees
 from obspy.core.trace import Trace
 import scipy
+from obspy import UTCDateTime
+import datetime
 
+
+def datetime_parser(dct):
+    """Checks dictionary for UTC datetime strings and
+    converts them."""
+
+    for k, v in dct.items():
+        if isinstance(v, str) and "UTC" in v:
+            try:
+                dct[k] = UTCDateTime(v[3:])
+            except:
+                pass
+    return dct
+
+def default(o):
+    if isinstance(o, (UTCDateTime, datetime.date, datetime.datetime)):
+        return  "UTC" + o.isoformat()
+    if isinstance(o, np.ndarray):
+        return o.tolist()
 
 def dump_json(content, filename):
     with open(filename, "w") as fh:
-        json.dump(content, fh, indent=2, sort_keys=2)
+        json.dump(content, fh, indent=2, sort_keys=2, default=default)
 
+def load_json(filename):
+    with open(filename, "r") as fh:
+        d = json.load(fh, object_hook=datetime_parser)
+    return d
 
 def get_trwin_tag(trwin):
     """

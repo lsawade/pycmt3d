@@ -121,6 +121,46 @@ class CMTSource(object):
                    m_rp=m_rp, m_tp=m_tp)
 
     @classmethod
+    def from_dictionary(cls, d):
+        """
+        Initialize a source object from a CMTSOLUTION file.
+
+        :param dictionary: dictionary
+        """
+
+        origin_time = d["origin_time"]
+        pde_lat = d["pde_latitude"]
+        pde_lon = d["pde_longitude"]
+        pde_depth_in_m = d["pde_depth_in_m"]
+        mb = d["mb"]
+        ms = d["ms"]
+        region_tag = d["region_tag"]
+
+        eventname = d["eventname"]
+        cmt_time = d["cmt_time"]
+        half_duration = d["half_duration"]
+        latitude = d["latitude"]
+        longitude = d["longitude"]
+        depth_in_m = d["depth_in_m"]
+
+        # unit: N/m
+        m_rr = d["m_rr"]
+        m_tt = d["m_tt"]
+        m_pp = d["m_pp"]
+        m_rt = d["m_rt"]
+        m_rp = d["m_rp"]
+        m_tp = d["m_tp"]
+
+        return cls(origin_time=origin_time,
+                    pde_latitude=pde_lat, pde_longitude=pde_lon, mb=mb, ms=ms,
+                    pde_depth_in_m=pde_depth_in_m, region_tag=region_tag,
+                    eventname=eventname, cmt_time=cmt_time,
+                    half_duration=half_duration, latitude=latitude,
+                    longitude=longitude, depth_in_m=depth_in_m,
+                    m_rr=m_rr, m_tt=m_tt, m_pp=m_pp, m_rt=m_rt,
+                    m_rp=m_rp, m_tp=m_tp)
+    
+    @classmethod
     def from_quakeml_file(cls, filename):
         """
         Initizliaze a source object from a quakeml file

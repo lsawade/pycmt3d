@@ -30,6 +30,7 @@ from matplotlib.lines import Line2D
 import matplotlib.ticker as mticker
 from cartopy.crs import PlateCarree
 import cartopy
+from .source import CMTSource
 
 # From pycmt3d
 from .geo_data_util import GeoMap
@@ -38,15 +39,19 @@ from .grid3d import Grid3d
 from .gradient3d import Gradient3d
 from . import logger
 from .util import get_cmt_par, get_trwin_tag
+from .util import load_json
 from .measure import _envelope
 import argparse
 
 # earth half circle
 EARTH_HC, _, _ = gps2dist_azimuth(0, 0, 0, 180)
 
-class Struct:
+class Struct(object):
     def __init__(self, **entries):
         self.__dict__.update(entries)
+        for k, v in self.__dict__.items():
+            if isinstance(v, dict):
+                self.__dict__[k] = Struct(**v)
 
 def get_new_locations(lat1, lon1, lat2, lon2, padding):
     """ Get new plodding locations
@@ -333,15 +338,28 @@ class PlotInvSummary(object):
 
         if type(data_container) == DataContainer:
             self.data_container = data_container
-            self.nwindows = data_container
+            self.nwindows = data_container.nwindows
             self.sta_lat = [window.latitude for window in self.data_container.trwins]
             self.sta_lon = [window.longitude for window in self.data_container.trwins]
+            self.nwin_on_trace = [window.latitude for window in self.data_container.trwins]
         elif type(data_container) == dict:
             self.sta_lon = data_container["sta_lon"]
             self.sta_lat = data_container["sta_lat"]
             self.nwindows = data_container["nwindows"]
+            self.nwin_on_trace = data_container["nwin_on_trace"]
+        else:
+            self.sta_lat = None
+            self.sta_lon = None
+            self.nwindows = None
+            self.nwin_on_trace = None
+
+        print(type(self.sta_lon))
+        print(self.sta_lon)
+        print(type(self.sta_lat))
+        print(self.sta_lat)
+        for lat in self.sta_lat:
+            print(lat)
         self.cmtsource = cmtsource
-        self.trwins = data_container.trwins
         self.config = config
         self.nregions = nregions
 
@@ -354,8 +372,6 @@ class PlotInvSummary(object):
             raise ValueError("Plot mode: 1) global; 2) regional")
         self.mode = mode.lower()
 
-        self.sta_lat = None
-        self.sta_lon = None
         self.sta_dist = []
         # azimuth in degree unit
         self.sta_azi = []
@@ -363,16 +379,27 @@ class PlotInvSummary(object):
         self.sta_theta = []
         self.prepare_array()
 
-        self.G = G
-
-        # Fix values for time an
-        if type(self.G) == Gradient3d:
+        # Loading G from the grid search
+        if type(G) in [Gradient3d, dict]:
+            if type(G) == Gradient3d:
+                self.G = G
+            elif type(G) == dict:
+                self.G = Struct(**G)
+                print(self.G.__dict__)
+                for att in self.G.__dict__.keys():
+                    if isinstance(getattr(self.G, att), list):
+                        setattr(self.G, att,
+                                np.array(getattr(self.G, att)))
             # Fix time
             self.bootstrap_mean[9] = self.G.bootstrap_mean[1]
-            self.bootstrap_mean[9] = self.G.bootstrap_std[1]
+            self.bootstrap_std[9] = self.G.bootstrap_std[1]
             # Fix moment
-            np.append(self.bootstrap_mean, self.G.bootstrap_mean[0] * self.cmtsource.M0)
-            np.append(self.bootstrap_mean, self.G.bootstrap_std[0] * self.cmtsource.M0)
+            self.bootstrap_mean = np.append(self.bootstrap_mean, 
+                                            self.G.bootstrap_mean[0] 
+                                            * self.cmtsource.M0)
+            self.bootstrap_std = np.append(self.bootstrap_std,
+                                           self.G.bootstrap_std[0] 
+                                           * self.cmtsource.M0)
 
         else:
             # Fix time shift
@@ -382,34 +409,46 @@ class PlotInvSummary(object):
             self.bootstrap_mean.append(np.nan)
             self.bootstrap_std(np.nan)
 
-    # @classmethod
-    # def from_JSON(cls, filename):
-
-    #     data_container=None # --> dict
-    #     cmtsource=None # --> cmtsource from json
-    #     config=None # --> dict only needs certain parameters
-    #     nregions=12 # --> value
-    #     new_cmtsource=None # --> cmtsource from json
-    #     bootstrap_mean=None # vector with values
-    #     bootstrap_std=None # ector with values
-    #     var_reduction=0.0 # value
-    #     mode="regional" # mode 
-    #     G=None # also only needs certain values:
-    #            # final scaling and shift
-    #            # misfit reduction
-    #            # bootstrap misfit reduction min
-    #            # bootstrap misfit reduction max
-    #            # bootstrap misfit reduction std
-    #            # bootstrap misfit reduction mean
-
+    @classmethod
+    def from_JSON(cls, filename):
     
+        print(os.path.abspath(filename))
+        d = load_json(os.path.abspath(filename))
+        print(d)
+        print(d["sta_lon"])
+        data_container = {"sta_lon": np.array(d["sta_lon"]),
+                          "sta_lat": np.array(d["sta_lat"]),
+                          "nwindows": d["nwindows"],
+                          "nwin_on_trace": d["nwin_on_trace"]}
+        cmtsource = CMTSource.from_dictionary(d["oldcmt"])
+        new_cmtsource = CMTSource.from_dictionary(d["newcmt"])
+        config = Struct(**d["config"])
+        nregions = d["nregions"]
+        bootstrap_mean = np.array(d["bootstrap_mean"])
+        bootstrap_std = np.array(d["bootstrap_std"])
+        var_reduction = d["var_reduction"]
+        mode = d["mode"]
+        G = d["G"]
+        print(G)
+               # final scaling and shift
+               # misfit reduction
+               # bootstrap misfit reduction min
+               # bootstrap misfit reduction max
+               # bootstrap misfit reduction std
+               # bootstrap misfit reduction mean
+        
 
-    #     return cls()
+        return cls(data_container=data_container, cmtsource=cmtsource, 
+                   config=config, nregions=nregions,
+                   new_cmtsource=new_cmtsource,
+                   bootstrap_mean=bootstrap_mean,
+                   bootstrap_std=bootstrap_std,
+                   var_reduction=var_reduction,
+                   mode=mode,
+                   G=G)
 
     def prepare_array(self):
         # station
-        self.sta_lat = [window.latitude for window in self.trwins]
-        self.sta_lon = [window.longitude for window in self.trwins]
 
         for sta_lat, sta_lon in zip(self.sta_lat, self.sta_lon):
             dist, az, baz = gps2dist_azimuth(self.cmtsource.latitude,
@@ -538,7 +577,7 @@ class PlotInvSummary(object):
         format4 = "%10.3f deg  %11.3f deg  %11.3f deg  %11.3f deg  %11.2f%%"
 
         text = "Number of stations: %5d    Number of windows: %4d" \
-               % (len(self.sta_lat), self.data_container.nwindows) + \
+               % (len(self.sta_lat), self.nwindows) + \
                "    Envelope coef: %12.3f" % self.config.envelope_coef
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
@@ -744,8 +783,8 @@ class PlotInvSummary(object):
         # set plt.subplot(***, polar=True)
         plt.title("Window Azimuth", fontsize=10, y=1.15)
         win_azi = []
-        for azi, window in zip(self.sta_azi, self.trwins):
-            win_azi.append([azi, window.nwindows])
+        for azi, nwindows in zip(self.sta_azi, self.nwin_on_trace):
+            win_azi.append([azi, nwindows])
         bins, naz = self.calculate_azimuth_bin(win_azi)
         norm_factor = np.max(naz)
 
@@ -956,6 +995,34 @@ class PlotInvSummary(object):
                   ncol=2, fontsize=8, frameon=False)
         ax.axis('off')
 
+    def plot_cost(self):
+       
+        ax = plt.gca()
+
+        x = np.arange(0, self.G.mincost_array.shape[0], 1)
+        ax.fill_between(x, self.G.mincost_array, self.G.maxcost_array,
+                        color='lightgray', label="min/max")
+        ax.fill_between(x, self.G.meancost_array - self.G.stdcost_array, 
+                        self.G.meancost_array + self.G.stdcost_array,
+                        color='darkgray', label="$\\bar{\\chi}\\pm\\sigma$")
+        ax.plot(self.G.meancost_array, 'k', label="$\\bar{\\chi}$")
+
+        if type(self.G) == Gradient3d:
+            method = self.G.config.method
+        else:
+            method = self.G.method
+            
+        if method == "gn":
+            label = "Gauss-Newton"
+        else:
+            label = "Newton"
+
+        ax.plot(self.G.chi_list, "r",
+                label="%s ($\mathcal{C}_{min} = %.3f$)" % (label, self.G.chi_list[-1]))
+        plt.legend(prop={'size': 6}, fancybox=False, framealpha=1)
+        ax.set_xlabel("Iteration #")
+        ax.set_ylabel("Misfit reduction")
+
     def plot_inversion_summary(self, figurename=None):
         """
         Plot the dataset and the inversion result.
@@ -975,8 +1042,9 @@ class PlotInvSummary(object):
         if type(self.G) == Grid3d:
             plt.subplot(g[1, 0])
             self.G.plot_grid()
-        elif type(self.G) == Gradient3d:
-             plt.subplot(g[1, 0])
+        elif type(self.G) in [Gradient3d, Struct]:
+            plt.subplot(g[1, 0])
+            self.plot_cost()
         else:
             plt.subplot(g[1, 0], polar=True)
             self.plot_sta_dist_azi()
@@ -985,9 +1053,8 @@ class PlotInvSummary(object):
         if type(self.G) == Grid3d:
             plt.subplot(g[1, 1])
             self.G.plot_cost()
-        elif type(self.G) == Gradient3d:
-            plt.subplot(g[1, 1])
-            self.G.plot_cost()
+        # elif type(self.G) in [Gradient3d, Struct]:
+        #     plt.subplot(g[1, 1])   
         else:
             plt.subplot(g[1, 1], polar=True)
             self.plot_sta_azi()
@@ -1023,4 +1090,4 @@ if __name__ == "__main__":
 
     # Run
     pl = PlotInvSummary.from_JSON(args.filename)
-    pl.plot_inversion_summary()
+    pl.plot_inversion_summary(figurename="/home/lsawade/trying_hard.pdf")
