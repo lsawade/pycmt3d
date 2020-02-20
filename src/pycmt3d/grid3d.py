@@ -489,7 +489,7 @@ class Grid3d(object):
         logger.info("Gradient iterations: %f" % G.it)
 
         logger.info("Gauss Newton:\n--------------------")
-        GN = Gradient(obsd, synt, tapers, delta, method="n", crit=0.01, 
+        GN = Gradient(obsd, synt, tapers, delta, method="gn", crit=0.01, 
                      nt=20, nls=20)
         GN.gradient()
 
@@ -657,7 +657,7 @@ class Grid3d(object):
 
             logger.info("Bootstrap: %d/%d" % (k, self.config.bootstrap_repeat))
             random_array = random_select(
-                ntrwins, nselected=n_subset)
+                ntrwins, nselected=n_subset, replace=0)
             if num_cores == 1:
                 for i in range(nt00):
                     for j in range(nm00):

@@ -527,8 +527,6 @@ def compute_ratio(obsd, synt, tapers):
     return np.sqrt(np.mean(np.sum(obsd ** 2 * tapers, axis=-1)
                    /np.sum(synt ** 2 * tapers, axis=-1)))
 
-
-
 def construct_matrices(data_container, weights, use_new):
     """Computes amplitude and cross correlation misfit for moment scaling
     as well as timeshift."""

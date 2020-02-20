@@ -63,15 +63,15 @@ class Inversion(object):
 
         if type(self.mt_config) == Grid3dConfig:
             # Grid search for CMT shift and
-            self.grid3d = Grid3d(self.cmt3d.new_cmtsource, self.data_container,
-                                self.grid3d_config)
-            self.grid3d.grid_search()
+            self.G = Grid3d(self.cmt3d.new_cmtsource, self.data_container,
+                                self.mt_config)
+            self.G.grid_search()
 
             self.new_cmtsource = copy.deepcopy(self.grid3d.new_cmtsource)
 
         elif type(self.mt_config) == Gradient3dConfig:
-            
-            self.G = Gradient3d(self.cmtsource, self.data_container, 
+            self.grid3d = None
+            self.G = Gradient3d(self.cmt3d.new_cmtsource, self.data_container, 
                                 self.mt_config)
             self.G.search()
             self.new_cmtsource = copy.deepcopy(self.G.new_cmtsource)
@@ -103,7 +103,8 @@ class Inversion(object):
     def plot_summary(self, outputdir=".", figure_format="pdf",
                      mode="global"):
         """
-        Plot inversion summary, including source parameter change,
+        Plot inversion summary, including source parameter change,if self.config.origin_time_inv:
+                
         station distribution, and beach ball change.
 
         :param outputdir: output directory
@@ -129,18 +130,17 @@ class Inversion(object):
         std = copy.deepcopy(self.cmt3d.par_std)
         std[9] = 1#self.grid3d.t00_std
 
-        M0_stats = [1, 1] #[self.grid3d.m00_mean, self.grid3d.m00_std]
+        
 
         plot_util = PlotInvSummary(
             data_container=self.data_container, config=self.cmt3d_config,
             cmtsource=self.cmtsource,
             nregions=self.cmt3d_config.weight_config.azi_bins,
             new_cmtsource=self.new_cmtsource,
-            bootstrap_mean=mean,
-            bootstrap_std=std,
-            M0_stats=M0_stats,
-            var_reduction=self.grid3d.var_reduction,
-            mode=mode, grid3d=self.grid3d)
+            bootstrap_mean=self.cmt3d.par_mean,
+            bootstrap_std=self.cmt3d.par_std,
+            var_reduction=self.G.var_reduction,
+            mode=mode, G=self.G)
         plot_util.plot_inversion_summary(figurename=figurename)
 
 
@@ -167,7 +167,23 @@ class Inversion(object):
 
         outdict["oldcmt"] = self.cmtsource.__dict__
         outdict["newcmt"] = self.new_cmtsource.__dict__
+        outdict["sta_lat"] = [window.latitude for window in self.data_container.trwins]
+        outdict["sta_lon"] = [window.longitude for window in self.data_container.trwins]
+        outdict["nwindows"] = self.data_container.nwindows
 
-        outdict["stations"] = self.data_container[]
+        outdict["bootstrap_mean"] = self.cmt3d.par_mean
+        outdict["bootstrap_std"] = self.cmt3d.par_std
 
+        outdict["nregions"] = self.cmt3d_config.weight_config.azi_bins
         
+        outdict["G"] = {"a": self.G.a,
+                        "dt": self.G.dt,
+                        "method": self.G.config.method,
+                        "bootstrap_mean": self.G.bootstrap_mean,
+                        "bootstrap_std": self.G.bootstrap_std,
+                        "chi_list": self.G.chi_list,
+                        "meancost_array": self.G.meancost_array,
+                        "stdcost_array": self.G.stdcost_array,
+                        "maxcost_array": self.G.maxcost_array,
+                        "mincost_array": self.G.mincost_array}
+        outdict["config"] = {}

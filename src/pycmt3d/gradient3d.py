@@ -32,8 +32,9 @@ from .measure import calculate_variance_on_trace
 from .measure import calculate_waveform_misfit_on_trace
 from .measure import construct_matrices, compute_misfit, get_window_list
 # from .plot_util import PlotStats
-from .util import timeshift_trace
-from .util import random_select
+from .util import timeshift_mat
+from .util import get_window_idx
+from .util import construct_taper
 import time
 
 
@@ -186,6 +187,17 @@ class Gradient3dConfig(object):
         else:
             raise ValueError("Chosen method not supported.")
         
+        # Start values
+        self.idt = idt
+        self.ia = ia
+
+        # Method parameters
+        self.nt = nt
+        self.nls = nls
+        self.crit = crit
+        self.reg = reg
+        self.precond = precond
+
         # Wolfe paramters
         self.c1 = c1
         self.c2 = c2
@@ -221,7 +233,6 @@ class Gradient3d(object):
         self.config = config
 
         self.metas = []
-
         self.new_cmtsource = None
 
         # timeshift parameters
@@ -245,8 +256,8 @@ class Gradient3d(object):
         self.var_reduction = None
 
         # internal vairables to be set
-        self.synth = None
-        self.ssynth = None # shifted synthetics
+        self.synt = None
+        self.ssynt = None # shifted synthetics
         self.obsd = None
         self.delta = None
         self.npts = None
@@ -256,15 +267,49 @@ class Gradient3d(object):
 
         # Prepare Matrices (otherwise it's going to be hard 
         # to compute the residual)
+        self.setup_window_weight()
         self.prepare_inversion_data()
 
+    def setup_window_weight(self):
+        """
+        Use Window information to setup weight for each window.
+
+        :returns:
+        """
+        self._init_metas()
+
+        logger.info("*" * 15)
+        logger.info("Start weighting...")
+        weight_obj = Weight(self.cmtsource, self.data_container,
+                            self.config.weight_config)
+        weight_obj.setup_weight()
+
+        for meta, weight_meta in zip(self.metas, weight_obj.metas):
+            if meta.obsd_id != weight_meta.obsd_id or \
+                    meta.synt_id != weight_meta.synt_id:
+                raise ValueError("weight.metas and self.metas are different"
+                                 "on meta: %s %s" % (meta.id, weight_meta.id))
+            meta.weights = weight_meta.weights
+            meta.prov.update(weight_meta.prov)
+
+    def _init_metas(self):
+        """
+        Initialize the self.metas list. Keep the same order with the
+        data container
+        """
+        for trwin in self.data_container:
+            metainfo = MetaInfo(obsd_id=trwin.obsd_id, synt_id=trwin.synt_id,
+                                weights=trwin.init_weight, Aws=[], bws=[],
+                                Aes=[], bes=[], prov={})
+            self.metas.append(metainfo)
 
     def search(self):
         """Performs the gradient descent method."""
 
         # Create Gradient method class
-        G = Gradient(self.obsd, self.synth, self.tapers, method=self.config.method,
-                     ia=self.config.ia, dt=self.config.idt,
+        G = Gradient(self.obsd, self.synt, self.tapers, self.delta,
+                     method=self.config.method,
+                     ia=self.config.ia, idt=self.config.idt,
                      nt=self.config.nt, nls=self.config.nls, crit=self.config.crit,
                      precond= self.config.precond,
                      reg=self.config.reg)
@@ -275,24 +320,96 @@ class Gradient3d(object):
         self.m00_best = G.a
         self.chi_list = G.cost_list
 
+        # Bootstrap if wanted
+        if self.config.bootstrap:
+            self.bootstrap()
+
+        # Post processing
         self.prepare_new_cmtsource()
         self.prepare_new_synthetic()
+        self.calculate_variance()
+
+    
+    def bootstrap(self):
+        """Performs bootstrap analysis on repeated gradient computations.
+        """
         
+        ntraces = self.synt.shape[0]
+        n_subset = int(np.ceil(self.config.bootstrap_subset_ratio * ntraces))
+        logger.info("Bootstrap Repeat: %d  Subset Ratio: %f Nsub: %d"
+                    % (self.config.bootstrap_repeat,
+                       self.config.bootstrap_subset_ratio, n_subset))
+
+        # Preallocate variables
+        bootstrap_t = np.zeros(self.config.bootstrap_repeat)
+        bootstrap_m = np.zeros(self.config.bootstrap_repeat)
+        bootstrap_cost_lists = []
+        maxlen = 0
+        for _i in range(self.config.bootstrap_repeat):
+
+            # Get random array
+            random_array = np.random.choice(ntraces, n_subset, 
+                                            replace=True)
+
+            G = Gradient(self.obsd[random_array, :],
+                         self.synt[random_array, :], 
+                         self.tapers[random_array, :],
+                         self.delta,
+                         method=self.config.method,
+                         ia=self.config.ia, idt=self.config.idt,
+                         nt=self.config.nt, nls=self.config.nls, crit=self.config.crit,
+                         precond= self.config.precond,
+                         reg=self.config.reg)
+            G.gradient()
+
+            bootstrap_t[_i] = G.dt
+            bootstrap_m[_i] = G.a
+            bootstrap_cost_lists.append(G.cost_list)
+
+            maxlen = np.max(np.array([maxlen, len(G.cost_list)]))
+
+
+        # Compute stats
+        self.bootstrap_mean = np.array([np.mean(bootstrap_m), np.mean(bootstrap_t)])
+        self.bootstrap_std = np.array([np.std(bootstrap_m), np.std(bootstrap_t)])
+
+        # Fix bootstrap cost list.
+        self.cost_array = np.zeros((self.config.bootstrap_repeat, maxlen))
+        for _i, clist in enumerate(bootstrap_cost_lists):
+            self.cost_array[_i, :len(clist)] = np.array(clist)
+            self.cost_array[_i, len(clist):] = clist[-1]
+            
+        self.maxcost_array = np.max(self.cost_array, axis=0)
+        self.mincost_array = np.min(self.cost_array, axis=0)
+        self.stdcost_array = np.std(self.cost_array, axis=0)
+        self.meancost_array = np.mean(self.cost_array, axis=0)
 
     def prepare_inversion_data(self):
         """Computes amplitude and cross correlation misfit for moment scaling
         as well as timeshift.
         """
 
-        self.npts = data_container[0].datalist['obsd'].stats.npts
-        self.delta = data_container[0].datalist['obsd'].stats.delta
-        self.nwin = len(data_container.trwins)
+        self.npts = self.data_container[0].datalist['obsd'].stats.npts
+        self.delta = self.data_container[0].datalist['obsd'].stats.delta
+        self.nwin = len(self.data_container.trwins)
 
         # Parameters needed for inversion
-        self.obsd = np.zeros((nwin, npts))
-        self.synt = np.zeros((nwin, npts))
-        self.tapers = np.zeros((nwin, npts))
+        self.obsd = np.zeros((self.nwin, self.npts))
+        self.synt = np.zeros((self.nwin, self.npts))
+        self.tapers = np.zeros((self.nwin, self.npts))
 
+        # Prepare weights
+        if self.config.weight_data:
+            weights = []
+            for meta in self.metas:
+                weights.extend(meta.weights)
+            weights = np.array(weights)
+        else:
+            if self.data_container.nwindows:
+                weights = np.ones(self.data_container.nwindows)
+            else:
+                weights = np.ones(len(self.data_container.nwindows))
+        
         counter = 0
 
         for _k, trwin in enumerate(self.data_container):
@@ -310,15 +427,12 @@ class Gradient3d(object):
 
             for _win_idx in range(trwin.windows.shape[0]):
                 istart, iend = get_window_idx(trwin.windows[_win_idx],
-                                            delta)
+                                              self.delta)
 
                 self.tapers[_k, istart:iend] = \
                     construct_taper(iend - istart, taper_type='hann') \
                     * weights[counter]
                 counter += 1
-
-        # Create first instance of shifted traces
-        self.ssynth = copy.deepcopy(self.synt)
 
     def calculate_variance(self):
         """ Computes the variance reduction"""
@@ -407,8 +521,7 @@ class Gradient3d(object):
             # because calculate_variance_on_trace assumes obsd and new_synt
             # starting at the same time(which is not the case since we
             # correct the starting time of new_synt)
-            if self.config.origin_time_inv:
-                meta.prov["new_synt"]["tshift"] -= self.t00_best
+            meta.prov["new_synt"]["tshift"] -= self.t00_best
 
     def plot_cost(self, figurename=None):
 
@@ -419,8 +532,22 @@ class Gradient3d(object):
             plt.figure()
             ax = plt.axes()
 
-        ax.plot(self.c_list, "r",
-                label="%s ($\mathcal{C}_{min} = %.3f$)" % (self.config.method, self.c_list[-1]))
+        if self.config.bootstrap:
+            x = np.arange(0, self.cost_array.shape[1], 1)
+            ax.fill_between(x, self.mincost_array, self.maxcost_array,
+                            color='lightgray', label="min/max")
+            ax.fill_between(x, self.meancost_array - self.stdcost_array, 
+                            self.meancost_array + self.stdcost_array,
+                            color='darkgray', label="$\\bar{\\chi}\\pm\\sigma$")
+            ax.plot(self.meancost_array, 'k', label="$\\bar{\\chi}$")
+
+        if self.config.method == "gn":
+            label = "Gauss-Newton"
+        else:
+            label = "Newton"
+
+        ax.plot(self.chi_list, "r",
+                label="%s ($\mathcal{C}_{min} = %.3f$)" % (label, self.chi_list[-1]))
         plt.legend(prop={'size': 6}, fancybox=False, framealpha=1)
         ax.set_xlabel("Iteration #")
         ax.set_ylabel("Misfit reduction")
@@ -431,33 +558,43 @@ class Gradient3d(object):
             plt.show()
         else:
             plt.savefig(figurename)
-    
-    def bootstrap_search(self):
-        pass
 
 
 
 class Gradient(object):
     
-    def __init__(self,  obsd: np.ndarray, synth: np.ndarray, delta: float,
-                tapers: np.ndarray, method: str = "gn",
+    def __init__(self,  obsd: np.ndarray, synt: np.ndarray,
+                tapers: np.ndarray, delta: np.float, method: str = "gn",
                 ia: float = 1.0, idt: float = 0.0, nt=20, nls=20,
+                c1: float = 1e-4, c2: float = 0.9,
                 crit: float = 1e-3, precond: bool = False,
                 reg: bool = False):
 
         self.obsd = obsd
-        self.synth = synth
-        self.ssynth = synth
+        self.synt = synt
+        self.ssynt = synt
+        self.tapers = tapers
         self.delta = delta
+        print(self.delta)
 
         # Method of choice Gauss-Newton or Newton
         if method in ["gn", "n"]:
             self.method = method
         else:
             raise ValueError("Chosen method not supported.")
+
+        # Method parameters
+        self.c1 = c1
+        self.c2 = c2
+        self.it = 1
+        self.nt = nt
+        self.nls = nls
+        self.precond = precond
+        self.reg = reg
         
         self.dt = idt
         self.a = ia
+        self.m = np.array([ia, idt])
 
         # Placeholders
         self.dt_list = [self.dt]
@@ -473,12 +610,6 @@ class Gradient(object):
         self.m = np.array([self.a, self.dt])
         self.m_list = [self.m]
 
-        self.it = 1
-        self.nt = nt
-
-        self.nls = nls
-        self.precond = precond
-        self.reg = reg
 
     def gradient(self):
 
@@ -496,12 +627,12 @@ class Gradient(object):
 
             # Preconditioning To make Hessian stabile
             if self.precond:
-                self.H, self.g = precondition(B, g)
+                self.H, self.g = precondition(self.B, self.g)
             else:
                 # inverting the matrix
-                self.H = np.linalg.inv(B)
+                self.H = np.linalg.inv(self.B)
 
-            if (-(H @ g) @ g > 0):
+            if (-(self.H @ self.g) @ self.g > 0):
                 logger.info("Gradient f**ked")
                 logger.info("B: " + self.arraystr(B))
                 logger.info("g: " + self.arraystr(g))
@@ -552,12 +683,9 @@ class Gradient(object):
             # Get new measurements
             mnew = self.m + alpha * self.dm
 
-            self.a = mnew[0]
-            self.dt = mnew[1]
-            self.forward()
-            self.ssynt *= mnew[0]
+            self.forward(mnew)
             self.res = self.compute_residual()
-            g_new = self.compute_gradient()
+            gnew = self.compute_gradient()
             fcost_new = self.compute_misfit()
 
             # Compute q
@@ -565,7 +693,7 @@ class Gradient(object):
 
             # Check wolfe condition
             wolfe = check_wolfe(alpha, self.chi, fcost_new, q, qnew,
-                                c1=self.config.c1, c2=self.config.c2, strong=False)
+                                c1=self.c1, c2=self.c2, strong=False)
 
             # Update alpha using wolfe conditions
             good, alpha, al, ar = update_alpha(alpha, al, ar, wolfe)
@@ -578,17 +706,20 @@ class Gradient(object):
         if not good:
             self.chi = fcost_new
 
-    def forward(self):
+    def forward(self, m=None):
         """Computes the forward data using the most recent model
         vector.
         """
-        self.ssynth = self.m[0] * timeshift_mat(self.synt, m[1], self.delta)
+        if m is None: 
+            self.ssynt = self.m[0] * timeshift_mat(self.synt, self.m[1], self.delta)
+        else:
+            self.ssynt = m[0] * timeshift_mat(self.synt, m[1], self.delta)
 
     def compute_hessian(self):
         """Computes Hessian depending on the method chosen.
         """
 
-        if self.method == "gn":
+        if self.method == "n":
             return self.compute_B()
         else:
             return self.compute_JJ()    
@@ -665,30 +796,16 @@ class Gradient(object):
 
     def compute_misfit(self):
         """Takes in a set of data (needs to be same as original obsd data
-        and computes the misfit between the input and observed data.
-        
-        Args:
-            synth (numpy.ndarray): input data
-        
-        Returns:
-            float
-                                
+        and computes the misfit between the input and observed data.                   
         """
-        return np.sum(self.tapers * (self.obsd - self.ssynth) ** 2 * self.delta,
+        return np.sum(self.tapers * (self.obsd - self.ssynt) ** 2 * self.delta,
                     axis=None)
     
     def compute_residual(self):
         """Takes in a set of data (needs to be same as original obsd data
-        and computes the misfit between the input and observed data.
-        
-        Args:
-            synth (numpy.ndarray): input data
-        
-        Returns:
-            float
-                                
+        and computes the misfit between the input and observed data.                           
         """
-        return self.tapers * (self.obsd - self.ssynth)
+        return self.tapers * (self.obsd - self.ssynt)
 
     @staticmethod
     def arraystr(array):

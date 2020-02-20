@@ -35,14 +35,18 @@ import cartopy
 from .geo_data_util import GeoMap
 from .data_container import DataContainer, TraceWindow
 from .grid3d import Grid3d
-from .gradient import Gradient
+from .gradient3d import Gradient3d
 from . import logger
 from .util import get_cmt_par, get_trwin_tag
 from .measure import _envelope
+import argparse
 
 # earth half circle
 EARTH_HC, _, _ = gps2dist_azimuth(0, 0, 0, 180)
 
+class Struct:
+    def __init__(self, **entries):
+        self.__dict__.update(entries)
 
 def get_new_locations(lat1, lon1, lat2, lon2, padding):
     """ Get new plodding locations
@@ -302,8 +306,8 @@ class PlotInvSummary(object):
 
     def __init__(self, data_container=None, cmtsource=None, config=None,
                  nregions=12, new_cmtsource=None, bootstrap_mean=None,
-                 bootstrap_std=None, M0_stats=None, var_reduction=0.0,
-                 mode="regional", grid3d=None):
+                 bootstrap_std=None, var_reduction=0.0,
+                 mode="regional", G=None):
         """ Plots inversion summary with all necessary information.
         
         Args:
@@ -323,12 +327,19 @@ class PlotInvSummary(object):
             M0_stats (numpy.ndarray, optional): statistics on gradient method.
             var_reduction (float, optional): Variance reduction overwrite. Defaults to 0.0.
             mode (str, optional): Plot mode. Defaults to "regional".
-            grid3d (pycmt3d.grid3d.Grid3d), optional): [description]. Defaults to None.
+            G (pycmt3d.grid3d.Grid3d or pycmt3d.gradient3d or dict, optional): 
+                input grid search or gradient data. Defaults to None.
         """
 
         if type(data_container) == DataContainer:
             self.data_container = data_container
             self.nwindows = data_container
+            self.sta_lat = [window.latitude for window in self.data_container.trwins]
+            self.sta_lon = [window.longitude for window in self.data_container.trwins]
+        elif type(data_container) == dict:
+            self.sta_lon = data_container["sta_lon"]
+            self.sta_lat = data_container["sta_lat"]
+            self.nwindows = data_container["nwindows"]
         self.cmtsource = cmtsource
         self.trwins = data_container.trwins
         self.config = config
@@ -352,8 +363,48 @@ class PlotInvSummary(object):
         self.sta_theta = []
         self.prepare_array()
 
-        self.M0_stats = M0_stats
-        self.grid3d = grid3d
+        self.G = G
+
+        # Fix values for time an
+        if type(self.G) == Gradient3d:
+            # Fix time
+            self.bootstrap_mean[9] = self.G.bootstrap_mean[1]
+            self.bootstrap_mean[9] = self.G.bootstrap_std[1]
+            # Fix moment
+            np.append(self.bootstrap_mean, self.G.bootstrap_mean[0] * self.cmtsource.M0)
+            np.append(self.bootstrap_mean, self.G.bootstrap_std[0] * self.cmtsource.M0)
+
+        else:
+            # Fix time shift
+            self.bootstrap_mean[9] = np.nan
+            self.bootstrap_std[9] = np.nan
+            # Fix moment
+            self.bootstrap_mean.append(np.nan)
+            self.bootstrap_std(np.nan)
+
+    # @classmethod
+    # def from_JSON(cls, filename):
+
+    #     data_container=None # --> dict
+    #     cmtsource=None # --> cmtsource from json
+    #     config=None # --> dict only needs certain parameters
+    #     nregions=12 # --> value
+    #     new_cmtsource=None # --> cmtsource from json
+    #     bootstrap_mean=None # vector with values
+    #     bootstrap_std=None # ector with values
+    #     var_reduction=0.0 # value
+    #     mode="regional" # mode 
+    #     G=None # also only needs certain values:
+    #            # final scaling and shift
+    #            # misfit reduction
+    #            # bootstrap misfit reduction min
+    #            # bootstrap misfit reduction max
+    #            # bootstrap misfit reduction std
+    #            # bootstrap misfit reduction mean
+
+    
+
+    #     return cls()
 
     def prepare_array(self):
         # station
@@ -579,13 +630,12 @@ class PlotInvSummary(object):
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
-        if self.M0_stats is not None:
-            text = "M0: " + format1 % (
-                self.cmtsource.M0, self.new_cmtsource.M0,
-                self.M0_stats[0], self.M0_stats[1],
-                self.M0_stats[1] / self.M0_stats[0] * 100)
-            pos -= incre
-            plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        text = "M0: " + format1 % (
+            self.cmtsource.M0, self.new_cmtsource.M0,
+            self.bootstrap_mean[-1], self.bootstrap_std[-1],
+            self.bootstrap_std[-1] / self.bootstrap_mean[-1]* 100)
+        pos -= incre
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
         # text = "HDR:" + format2 % (
         #        self.cmtsource.half_duration,
@@ -922,28 +972,32 @@ class PlotInvSummary(object):
         self.plot_global_map()
 
         # Grid search or stations vz distance and azimuth
-        if self.grid3d is None:
+        if type(self.G) == Grid3d:
+            plt.subplot(g[1, 0])
+            self.G.plot_grid()
+        elif type(self.G) == Gradient3d:
+             plt.subplot(g[1, 0])
+        else:
             plt.subplot(g[1, 0], polar=True)
             self.plot_sta_dist_azi()
-        else:
-            plt.subplot(g[1, 0])
-            self.grid3d.plot_grid()
 
         # Misfit reduction of gridsearch or station azimuth histogram
-        if self.grid3d is None:
+        if type(self.G) == Grid3d:
+            plt.subplot(g[1, 1])
+            self.G.plot_cost()
+        elif type(self.G) == Gradient3d:
+            plt.subplot(g[1, 1])
+            self.G.plot_cost()
+        else:
             plt.subplot(g[1, 1], polar=True)
             self.plot_sta_azi()
-        else:
-            plt.subplot(g[1, 1])
-            self.grid3d.plot_cost()
-
         # Plot window azimuth histogram
         plt.subplot(g[1, 2], polar=True)
         self.plot_win_azi()
         ax = plt.subplot(g[0, 2], projection=PlateCarree())
         # ax.set_global()
         self.plot_mini_map()
-        self.plot_geology()
+        # self.plot_geology()
         self.plot_faults()
         # self.plot_si_bb(ax, self.cmtsource)
         ax = plt.subplot(g[2, 2])
@@ -958,3 +1012,15 @@ class PlotInvSummary(object):
             plt.show()
         else:
             plt.savefig(figurename)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('filename', help='Path to inversion summary JSON file',
+                        type=str)
+    args = parser.parse_args()
+
+    # Run
+    pl = PlotInvSummary.from_JSON(args.filename)
+    pl.plot_inversion_summary()
