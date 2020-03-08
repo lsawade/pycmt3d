@@ -398,16 +398,29 @@ class PlotInvSummary(object):
                                             self.G.bootstrap_mean[0] 
                                             * self.cmtsource.M0)
             self.bootstrap_std = np.append(self.bootstrap_std,
-                                           self.G.bootstrap_std[0] 
-                                           * self.cmtsource.M0)
+                                        self.G.bootstrap_std[0] 
+                                        * self.cmtsource.M0)
+        elif type(G) == Grid3d:
 
-        else:
+            self.G = G
+
             # Fix time shift
             self.bootstrap_mean[9] = np.nan
             self.bootstrap_std[9] = np.nan
+
             # Fix moment
-            self.bootstrap_mean.append(np.nan)
-            self.bootstrap_std(np.nan)
+            self.bootstrap_mean = np.append(self.bootstrap_mean, np.nan)
+            self.bootstrap_std = np.append(self.bootstrap_std, np.nan)
+
+        else:
+            self.G = G
+            # Fix time shift
+            self.bootstrap_mean[9] = np.nan
+            self.bootstrap_std[9] = np.nan
+
+            # Fix moment
+            self.bootstrap_mean = np.append(self.bootstrap_mean, np.nan)
+            self.bootstrap_std = np.append(self.bootstrap_std, np.nan)
 
     @classmethod
     def from_JSON(cls, filename):

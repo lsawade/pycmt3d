@@ -21,10 +21,13 @@ from . import logger
 from .config import Config
 from .cmt3d import Cmt3D
 from .source import CMTSource
-from .grid3d import Grid3d, Grid3dConfig
-from .gradient3d_mpi import Gradient3d, Gradient3dConfig
+from .grid3d import Grid3d
+from .grid3d import Grid3dConfig
+from .gradient3d_mpi import Gradient3d
+from .gradient3d_mpi import Gradient3dConfig
 from .data_container import DataContainer
-from .plot_util import PlotInvSummary, plot_seismograms
+from .plot_util import PlotInvSummary
+from .plot_util import plot_seismograms
 import matplotlib.pyplot as plt
 from .util import dump_json
 
@@ -69,7 +72,7 @@ class Inversion(object):
                                 self.mt_config)
             self.G.grid_search()
 
-            self.new_cmtsource = copy.deepcopy(self.grid3d.new_cmtsource)
+            self.new_cmtsource = copy.deepcopy(self.G.new_cmtsource)
 
         elif type(self.mt_config) == Gradient3dConfig:
             self.grid3d = None

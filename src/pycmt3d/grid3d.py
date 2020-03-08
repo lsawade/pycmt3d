@@ -188,8 +188,8 @@ class Grid3d(object):
         # Run grid search
         self.grid_search_taM()
 
-        self.grid_search_origin_time()
-        self.grid_search_energy()
+        # self.grid_search_origin_time()
+        # self.grid_search_energy()
 
         # Run bootstrap statistic
         # self.grid_search_bootstrap()
@@ -310,9 +310,9 @@ class Grid3d(object):
             logger.warning("Origin time search hit boundary, which means"
                            "search range should be reset")
         self.time_best = t00_best
-        # self.t00_best = t00_best
-        # self.t00_array = t00_array
-        # self.t00_misfit = final_misfits
+        self.t00_best = t00_best
+        self.t00_array = t00_array
+        self.t00_misfit = final_misfits
 
     def calculate_misfit_for_m00(self, m00):
         """Computes misfit for amplitude scaling."""
@@ -769,10 +769,10 @@ class Grid3d(object):
         logger.info("best m00: %6.3f" % m00_best)
 
         self.energy_best = m00_best
-        # self.m00_best = m00_best
-        # self.m00_array = m00_array
-        # self.m00_misfit = final_misfits
-        # self.m00_cat_misfit = cat_misfits
+        self.m00_best = m00_best
+        self.m00_array = m00_array
+        self.m00_misfit = final_misfits
+        self.m00_cat_misfit = cat_misfits
 
     def write_new_cmtfile(self, outputdir="."):
         suffix = "grid"
@@ -911,11 +911,6 @@ class Grid3d(object):
         ctf = ax.pcolormesh(tt, (mm - 1) * 100,
                            np.log10(self.misfit_grid.T),
                            cmap='Greys', edgecolor=None)
-        ax.plot(self.time_best * np.ones_like(self.m00_array),
-                (self.m00_array - 1) * 100, "k--",
-                self.t00_array,
-                (self.energy_best * np.ones_like(self.t00_array) - 1) * 100,
-                "k--", lw=0.5)
         ax.plot(0, 0, "ks", markeredgecolor='k',
                 markersize=5, label="start", zorder=10)
         ax.plot(self.t00_best_grid,
@@ -934,9 +929,6 @@ class Grid3d(object):
                 (self.gnaf - 1.) * 100.,
                 "b*", markeredgecolor='k',
                 markersize=10, label="GN")
-        ax.plot(self.time_best, (self.energy_best - 1) * 100,
-                "k*", markeredgecolor='k',
-                markersize=10, label="Line")
 
 
         plt.legend(prop={'size': 6}, fancybox=False, framealpha=1)
