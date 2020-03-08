@@ -3,6 +3,8 @@
 """
 Class for Gauss Newton and Hessian optimization of
 the scalar moment and timeshift.
+ To run this code in mpi mode the child function
+ "grad_child_mpi.py" is essential!
 
 :copyright:
     Lucas Sawade (lsawade@princeton.edu), 2020
@@ -19,9 +21,6 @@ from copy import deepcopy
 
 import multiprocessing
 import psutil
-from joblib import delayed
-from joblib import Parallel
-from joblib import load, dump
 
 # Internal imports
 from .source import CMTSource
@@ -37,6 +36,27 @@ from .util import timeshift_mat
 from .util import get_window_idx
 from .util import construct_taper
 import time
+from .mpi_utils import MPI_comm
+from .mpi_utils import broadcast_dict
+from .mpi_utils import get_result_dictionaries
+from .mpi_utils import split
+from .mpi_utils import get_dictionary_size
+
+
+def get_number_of_cores(bootstrap):
+    """Returns the number of appropriate cores 
+    for spawning the MPI process"""
+
+    slurm_cores = os.getenv("SLURM_NTASKS")
+    if slurm_cores is None:
+        avail = psutil.cpu_count(logical = False) - 2
+    else:
+        avail = int(slurm_cores) - 1
+
+    if avail < 1:
+        avail = 1
+
+    return min([avail, bootstrap])
 
 
 
@@ -319,7 +339,7 @@ class Gradient3d(object):
         # Extract values
         self.t00_best = G.dt
         self.m00_best = G.a
-        self.chi_list = G.cost_list
+        self.chi_list = G.cost_list[:G.it]
 
         # Bootstrap if wanted
         if self.config.bootstrap:
@@ -351,66 +371,121 @@ class Gradient3d(object):
 
         print("hello", type(self.obsd))
         timer0 = time.time()
-        self.num_cores = psutil.cpu_count(logical = False)
+        self.num_cores = get_number_of_cores(self.config.bootstrap_repeat)
         logger.info("Number of cores: %d" % self.num_cores)
         logger.info("Bootstrap - Looping ....")
 
-        if self.num_cores == 1:
+        np.random.seed(1234)
+        random_arrays = []
+        for _i in range(self.config.bootstrap_repeat):
+            # Get random array
+            random_array = np.random.choice(self.ntraces, self.n_subset, 
+                                                replace=True)
+            random_arrays.append(random_array)
+            
 
+        if self.num_cores == 1:
+            np.random.seed(1234)
             for _i in range(self.config.bootstrap_repeat):
                 
-
-                # Get random array
-                random_array = np.random.choice(self.ntraces, self.n_subset, 
-                                                    replace=True)
+                
                 # Compute bootstrap stuff
                 bt, bm, bcost, costlen = self.bootstrap_wrapper(
                     _i, self.num_cores, self.ntraces, self.n_subset,
-                    config=self.config, obsd=self.obsd[random_array, :], 
-                    synt=self.synt[random_array, :], 
-                    tapers=self.tapers[random_array, :], delta=self.delta)
+                    self.config, self.obsd[random_arrays[_i], :], 
+                    self.synt[random_arrays[_i], :], 
+                    self.tapers[random_arrays[_i], :], self.delta)
                     
                 
                 # Put everything into arrays
                 bootstrap_t[_i] = bt
                 bootstrap_m[_i] = bm
-                bootstrap_cost_lists.append(bcost)
+                bootstrap_cost_lists.append(bcost[:costlen])
                 maxlen = np.max(np.array([maxlen, costlen]))
 
+                 # Compute stats 
+            self.bootstrap_mean = np.array([np.mean(bootstrap_m), np.mean(bootstrap_t)])
+            self.bootstrap_std = np.array([np.std(bootstrap_m), np.std(bootstrap_t)])
+
+            # Fix bootstrap cost list.
+            self.cost_array = np.zeros((self.config.bootstrap_repeat, maxlen))
+            for _i, clist in enumerate(bootstrap_cost_lists):
+                self.cost_array[_i, :len(clist)] = np.array(clist)
+                self.cost_array[_i, len(clist):] = clist[-1]
+
         else:
+           
+            # Sample result dictionary to measure size
+            
 
-            random_arrays = []
-            for _i in range(self.config.bootstrap_repeat):
-                # Get random array
-                random_array = np.random.choice(self.ntraces, self.n_subset, 
-                                                    replace=True)
-                random_arrays.append(random_array)
+            jobs = split(list(range(self.config.bootstrap_repeat)),
+                         self.num_cores)
 
-            # backend='multiprocessing'
-            results = Parallel(n_jobs=self.num_cores)(
-                delayed(self.bootstrap_wrapper)(
-                    k, self.num_cores, self.ntraces, self.n_subset, self.config,
-                    obsd=self.obsd[random_arrays[k], :], 
-                    synt=self.synt[random_arrays[k], :],
-                    tapers=self.tapers[random_arrays[k], :],
-                    delta=self.delta)
-                for k in range(self.config.bootstrap_repeat))
+            job_len = len(jobs[0])
 
-            for _i, result in enumerate(results):
-                bootstrap_t[_i] = result[0]
-                bootstrap_m[_i] = result[1]
-                bootstrap_cost_lists.append(result[2])
-                maxlen = np.max(np.array([maxlen, result[3]]))
+            sample_d = {"dt": np.zeros(job_len, dtype=np.float), 
+                        "a": np.zeros(job_len, dtype=np.float),
+                        "cost": np.zeros((job_len, self.config.nt), dtype=np.float), 
+                        "cost_len": 9999*np.ones(job_len, dtype=np.int)}
 
-        # Compute stats 
-        self.bootstrap_mean = np.array([np.mean(bootstrap_m), np.mean(bootstrap_t)])
-        self.bootstrap_std = np.array([np.std(bootstrap_m), np.std(bootstrap_t)])
+            # Dictionary to be broadcast to the workers
+            bcast_dict = {"obsd": self.obsd,
+                          "synt": self.synt,
+                          "tapers": self.tapers,
+                          "delta": self.delta,
+                          "repeat": self.config.bootstrap_repeat,
+                          "n_subset": self.n_subset,
+                          "ntraces": self.ntraces,
+                          "config": self.config,
+                          "randarray": random_arrays,
+                          "jobs": jobs,
+                          "job_len": job_len,
+                          "sample_d": sample_d}
+            
+            # mpi_file = os.path.join(os.path.dirname(__file__), "grad_child_mpi.py")
+            try:
+                from mpi4py import MPI
+            except Exception as e:
+                print(e)
+                ValueError("mpi4py note installed?")
+            
+            arg_list = ["-m", "pycmt3d.grad_child_mpi"]
 
-        # Fix bootstrap cost list.
-        self.cost_array = np.zeros((self.config.bootstrap_repeat, maxlen))
-        for _i, clist in enumerate(bootstrap_cost_lists):
-            self.cost_array[_i, :len(clist)] = np.array(clist)
-            self.cost_array[_i, len(clist):] = clist[-1]
+            # with MPI_comm(file=arg_list, mpi_size=self.num_cores, master=True) as comm:
+            comm = MPI.COMM_SELF.Spawn(sys.executable,
+                            args=arg_list,
+                            maxprocs=self.num_cores)
+            # Broad cast data dictionary
+            broadcast_dict(bcast_dict, comm)
+
+            # Get back results from the workers
+            list_of_result_dicts = \
+                get_result_dictionaries(sample_d, comm, self.num_cores)
+
+            comm.Disconnect()
+
+            # sys.exit()
+            bootstrap_cost_len = []
+            counter = 0
+            for _i, result in enumerate(list_of_result_dicts):
+                for _j, clen in enumerate(result["cost_len"]):
+                    if clen != 9999:
+                        bootstrap_t[counter] = result["dt"][_j]
+                        bootstrap_m[counter] = result["a"][_j]
+                        bootstrap_cost_lists.append(result["cost"][_j])
+                        bootstrap_cost_len.append(clen)
+                        maxlen = np.max(np.array([maxlen, clen]))
+                        counter += 1
+                        
+            # Compute stats 
+            self.bootstrap_mean = np.array([np.mean(bootstrap_m), np.mean(bootstrap_t)])
+            self.bootstrap_std = np.array([np.std(bootstrap_m), np.std(bootstrap_t)])
+
+            # Fix bootstrap cost list.
+            self.cost_array = np.zeros((self.config.bootstrap_repeat, maxlen))
+            for _i, clist in enumerate(bootstrap_cost_lists):
+                self.cost_array[_i, :] = clist[:maxlen]
+                self.cost_array[_i, bootstrap_cost_len[_i]:] = clist[bootstrap_cost_len[_i]-1]
             
         self.maxcost_array = np.max(self.cost_array, axis=0)
         self.mincost_array = np.min(self.cost_array, axis=0)
@@ -420,8 +495,8 @@ class Gradient3d(object):
         logger.info("Total Bootstrap time: %.2f" % (time.time() - timer0))
 
     @staticmethod
-    def bootstrap_wrapper(k, num_cores, ntraces, n_subset, config=None,
-                          obsd=None, synt=None, tapers=None, delta=None):
+    def bootstrap_wrapper(k, num_cores, ntraces, n_subset, config,
+                          obsd, synt, tapers, delta):
         """This function simply wraps around the gradient subset method
         to efficiently compute bootstrap subsets"""
 
@@ -445,7 +520,7 @@ class Gradient3d(object):
         bootstrap_m = G.a
         bootstrap_cost_list = G.cost_list
 
-        cost_list_len = len(G.cost_list)
+        cost_list_len = len(G.cost_list[:G.it])
 
         logger.info("Bootstrap Repeat: %d/%d done." 
                     % (k, config.bootstrap_repeat))
@@ -620,6 +695,7 @@ class Gradient3d(object):
         plt.legend(prop={'size': 6}, fancybox=False, framealpha=1)
         ax.set_xlabel("Iteration #")
         ax.set_ylabel("Misfit reduction")
+        ax.set_ylim([0,1])
 
         if figurename is None:
             pass
@@ -644,7 +720,6 @@ class Gradient(object):
         self.ssynt = synt
         self.tapers = tapers
         self.delta = delta
-        print(self.delta)
 
         # Method of choice Gauss-Newton or Newton
         if method in ["gn", "n"]:
@@ -674,7 +749,9 @@ class Gradient(object):
         self.chi0 = self.compute_misfit()
         self.chi = self.chi0 * 1.
         self.chip = self.chi0 * 1.
-        self.cost_list = [1]
+        
+        self.cost_list = [0] * self.nt
+        self.cost_list[0] = 1
         self.crit = crit
         self.m = np.array([self.a, self.dt])
         self.m_list = [self.m]
@@ -728,11 +805,12 @@ class Gradient(object):
             self.a_list.append(self.a)
 
             if np.abs((self.chi - self.chip) / self.chip) < 1e-3:
-                logger.info("No improvement!")
+                if self.verbose:
+                    logger.info("No improvement!")
                 break
 
             self.chip = self.chi
-            self.cost_list.append(self.chi/self.chi0)
+            self.cost_list[self.it] = self.chi/self.chi0
             self.it += 1
 
 

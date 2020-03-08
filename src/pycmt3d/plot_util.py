@@ -36,7 +36,7 @@ from .source import CMTSource
 from .geo_data_util import GeoMap
 from .data_container import DataContainer, TraceWindow
 from .grid3d import Grid3d
-from .gradient3d import Gradient3d
+from .gradient3d_mpi import Gradient3d
 from . import logger
 from .util import get_cmt_par, get_trwin_tag
 from .util import load_json
@@ -483,7 +483,7 @@ class PlotInvSummary(object):
 
     def calculate_azimuth_bin(self, azimuth_array):
         """
-        Calculate the azimuth and sort them into binsconda instal
+        Calculate the azimuth and sort them into bins
 
         :return:
         """
@@ -1022,6 +1022,7 @@ class PlotInvSummary(object):
         plt.legend(prop={'size': 6}, fancybox=False, framealpha=1)
         ax.set_xlabel("Iteration #")
         ax.set_ylabel("Misfit reduction")
+        ax.set_ylim([0,1])
 
     def plot_inversion_summary(self, figurename=None):
         """

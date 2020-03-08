@@ -25,7 +25,7 @@ from pycmt3d import CMTSource
 from pycmt3d import DataContainer
 from pycmt3d import Grid3dConfig
 from pycmt3d import Inversion
-from pycmt3d.gradient3d import Gradient3d, Gradient3dConfig
+from pycmt3d.gradient3d_mpi import Gradient3d, Gradient3dConfig
 
 
 # Most generic way to get the data geology path.
@@ -151,15 +151,15 @@ if __name__ == "__main__":
                                      taper_type="tukey",
                                      c1=1e-4, c2=0.9, 
                                      idt=0.0, ia = 1.,
-                                     nt=50, nls=20,
+                                     nt=10, nls=20,
                                      crit=0.01,
                                      precond=False, reg=False,
                                      bootstrap=True, bootstrap_repeat=20,
                                      bootstrap_subset_ratio=0.4)
     inv = Inversion(cmt, dcon, cmt3d_config, grad3d_config)
     inv.source_inversion()
-    inv.write_summary_json("/home/lsawade")
-    inv.plot_summary("/home/lsawade")
-    inv.plot_new_synt_seismograms("/home/lsawade/pycmt3d/seis")
-    inv.write_new_cmtfile("/home/lsawade/pycmt3d/seis")
+    inv.write_summary_json(os.getenv("HOME"))
+    inv.plot_summary(os.getenv("HOME"))
+    # inv.plot_new_synt_seismograms("/home/lsawade/pycmt3d/seis")
+    # inv.write_new_cmtfile("/home/lsawade/pycmt3d/seis")
 

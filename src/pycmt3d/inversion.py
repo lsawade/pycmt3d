@@ -22,7 +22,7 @@ from .config import Config
 from .cmt3d import Cmt3D
 from .source import CMTSource
 from .grid3d import Grid3d, Grid3dConfig
-from .gradient3d import Gradient3d, Gradient3dConfig
+from .gradient3d_mpi import Gradient3d, Gradient3dConfig
 from .data_container import DataContainer
 from .plot_util import PlotInvSummary, plot_seismograms
 import matplotlib.pyplot as plt
@@ -131,8 +131,6 @@ class Inversion(object):
         mean[9] = 1 #self.grid3d.t00_mean
         std = copy.deepcopy(self.cmt3d.par_std)
         std[9] = 1#self.grid3d.t00_std
-
-        
 
         plot_util = PlotInvSummary(
             data_container=self.data_container, config=self.cmt3d_config,
