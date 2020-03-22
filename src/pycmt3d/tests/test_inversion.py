@@ -17,17 +17,13 @@ from __future__ import print_function, division
 import inspect
 import os
 import pytest
-import matplotlib.pyplot as plt
-# plt.switch_backend('agg')  # NOQA
 from pycmt3d import DefaultWeightConfig, Config
 from pycmt3d.constant import PARLIST
 from pycmt3d import CMTSource
 from pycmt3d import DataContainer
 from pycmt3d import Grid3dConfig
 from pycmt3d import Inversion
-from pycmt3d.gradient3d_mpi import Gradient3d, Gradient3dConfig
-
-
+from pycmt3d.gradient3d import Gradient3dConfig
 # Most generic way to get the data geology path.
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(
     inspect.getfile(inspect.currentframe()))), "data")
@@ -109,15 +105,16 @@ def test_inversion(cmtsource, tmpdir):
     inv.source_inversion()
     inv.plot_summary(str(tmpdir))
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     outdir = "."
     cmt = CMTSource.from_CMTSOLUTION_file(CMTFILE)
 
     dcon = DataContainer(parlist=PARLIST[:9])
     os.chdir(DATA_DIR)
     window_file = os.path.join(DATA_DIR,
-                               "flexwin_T006_T030.output.two_stations")
+                               "flexwin_T006_T030."
+                               "output.two_stations")
     dcon.add_measurements_from_sac(window_file, tag="T006_T030",
                                    file_format="txt")
 
@@ -134,7 +131,6 @@ if __name__ == "__main__":
                           bootstrap=True, bootstrap_repeat=20,
                           bootstrap_subset_ratio=0.4)
 
-
     energy_keys = ["power_l1", "power_l2", "cc_amp", "chi"]
 
     grid3d_config = Grid3dConfig(origin_time_inv=True, time_start=-1.5,
@@ -143,14 +139,18 @@ if __name__ == "__main__":
                                  energy_start=0.2, energy_end=1.8,
                                  denergy=0.025,
                                  energy_keys=energy_keys,
-                                 energy_misfit_coef=[0.25, 0.25, 0.25, 0.25],
-                                 weight_data=True, weight_config=weight_config,
+                                 energy_misfit_coef=[0.25, 0.25,
+                                                     0.25, 0.25],
+                                 weight_data=True,
+                                 weight_config=weight_config,
                                  use_new=True)
 
-    grad3d_config = Gradient3dConfig(method="gn", weight_data=True, weight_config=weight_config, use_new=True,
+    grad3d_config = Gradient3dConfig(method="gn", weight_data=True,
+                                     weight_config=weight_config,
+                                     use_new=True,
                                      taper_type="tukey",
-                                     c1=1e-4, c2=0.9, 
-                                     idt=0.0, ia = 1.,
+                                     c1=1e-4, c2=0.9,
+                                     idt=0.0, ia=1.,
                                      nt=10, nls=20,
                                      crit=0.01,
                                      precond=False, reg=False,
@@ -158,8 +158,8 @@ if __name__ == "__main__":
                                      bootstrap_subset_ratio=0.4)
     inv = Inversion(cmt, dcon, cmt3d_config, grad3d_config)
     inv.source_inversion()
-    inv.write_summary_json(os.getenv("HOME"))
-    inv.plot_summary(os.getenv("HOME"))
-    # inv.plot_new_synt_seismograms("/home/lsawade/pycmt3d/seis")
-    # inv.write_new_cmtfile("/home/lsawade/pycmt3d/seis")
+    inv.write_summary_json("/Users/lucassawade")
+    inv.plot_summary("/Users/lucassawade")
 
+    inv.plot_new_synt_seismograms("/Users/lucassawade")
+    inv.write_new_cmtfile("/Users/lucassawade")

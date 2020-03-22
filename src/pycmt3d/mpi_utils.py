@@ -23,8 +23,10 @@ import pickle
 
 """MPI context manager"""
 
+
 class MPI_comm(object):
-    def __init__(self, file: str = None, mpi_size: int = None, master: bool = True):
+    def __init__(self, file: str = None, mpi_size: int = None,
+                 master: bool = True):
         if master:
             if type(file) == list:
                 arg_list = file
@@ -34,14 +36,17 @@ class MPI_comm(object):
                 ValueError("Wrong filetype.")
 
             self.comm = MPI.COMM_SELF.Spawn(sys.executable,
-                                args=arg_list,
-                                maxprocs=mpi_size)
+                                            args=arg_list,
+                                            maxprocs=mpi_size)
         else:
             self.comm = MPI.Comm.Get_parent()
+
     def __enter__(self):
         return self.comm
+
     def __exit__(self, type, value, traceback):
-        self.comm.Disconnect()  
+        self.comm.Disconnect()
+
 
 def split(container, count):
     """
@@ -50,6 +55,7 @@ def split(container, count):
     the use case.
     """
     return [container[_i::count] for _i in range(count)]
+
 
 """
 From master to worker: Dictionaries
@@ -73,7 +79,7 @@ def broadcast_dict(d, comm):
 
 def get_bcast_dictionary(comm):
     """This function gets a dictionary broadcasted
-    from a parent process using a string and its 
+    from a parent process using a string and its
     bytesize. Works for any
     """
     # Create a an integer to ask for bytesize of string
@@ -92,18 +98,20 @@ def get_bcast_dictionary(comm):
 
     return d
 
+
 """
 Gather results dictionary. This means we need a worker
 side function that sends the dictionary and a master side
 function that Gathers the dictionaries.
 """
 
+
 def get_dictionary_size(d: dict):
     """[summary]
-    
+
     Args:
         d (dict): dictionary
-    
+
     Returns:
         dictionary size in bytes
     """
@@ -113,7 +121,7 @@ def get_dictionary_size(d: dict):
 
 def send_result_dictionary(d: dict, comm):
     """Sends result dictionary to master worker.
-    
+
     Args:
         d ([type]): dictionary of sorts
         comm ([type]): [description]
@@ -126,7 +134,7 @@ def send_result_dictionary(d: dict, comm):
     size = comm.Get_size()
 
     # Set rec size
-    dsize_receive = bytearray(dsize) * size    
+    dsize_receive = bytearray(dsize) * size
 
     # Broad casting
     comm.Gather([d_string, MPI.CHAR], [dsize_receive, MPI.CHAR], root=0)
@@ -134,13 +142,13 @@ def send_result_dictionary(d: dict, comm):
 
 def get_result_dictionaries(sample_d, comm, size):
     """Receiving the results from the workers
-    
+
     Args:
         sample_d (dict): sample dictionary to estimate size
         comm (mpi4py.MPI.Intercomm): MPI.Intercomm
         size (int): number of workers
                     IMPORTANT! ***NOT*** comm.Get_size()
-    
+
     Returns:
         list: list of results dictionaries of the same format
               as the sample dictionary
@@ -151,7 +159,7 @@ def get_result_dictionaries(sample_d, comm, size):
 
     d_strings = bytearray(size * dsize)
 
-    # Try to gather dictionaries 
+    # Try to gather dictionaries
     comm.Gather([dsize, MPI.CHAR], [d_strings, MPI.CHAR], root=MPI.ROOT)
 
     """
@@ -161,12 +169,12 @@ def get_result_dictionaries(sample_d, comm, size):
     d_strings. The problem now is that concatenation of bytearrays
     makes the concatenated bytearray smaller in size (I don't know why.)
     For that reason, what I'm doing is pretty hacky/ugly. I found the splitter
-    of the pickled dictionary as seen below. 
-    I use it to split the byte array into dictionary pieces. Now since the 
+    of the pickled dictionary as seen below.
+    I use it to split the byte array into dictionary pieces. Now since the
     bytearray has become smaller, there will be "end-bytes" that are leftover.
     Therefore, the strings[:-1]. to omit the last bit of unpopulated bytes.
     Then, I add the splitter again to be able to "unpickl" the dictionary.
-    
+
     I don't know about you, but I think that's pretty dirty.
 
     """
@@ -178,8 +186,5 @@ def get_result_dictionaries(sample_d, comm, size):
     for string in bytestrings[:-1]:
         single_dict = pickle.loads(string + splitter)
         list_of_dicts.append(single_dict)
-    
+
     return list_of_dicts
-
-
-

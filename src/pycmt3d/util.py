@@ -28,24 +28,28 @@ def datetime_parser(dct):
         if isinstance(v, str) and "UTC" in v:
             try:
                 dct[k] = UTCDateTime(v[3:])
-            except:
+            except Exception:
                 pass
     return dct
 
+
 def default(o):
     if isinstance(o, (UTCDateTime, datetime.date, datetime.datetime)):
-        return  "UTC" + o.isoformat()
+        return "UTC" + o.isoformat()
     if isinstance(o, np.ndarray):
         return o.tolist()
+
 
 def dump_json(content, filename):
     with open(filename, "w") as fh:
         json.dump(content, fh, indent=2, sort_keys=2, default=default)
 
+
 def load_json(filename):
     with open(filename, "r") as fh:
-        d = json.load(fh, object_hook=datetime_parser)
+        d = json.load(fh)  # , object_hook=datetime_parser)
     return d
+
 
 def get_trwin_tag(trwin):
     """
@@ -251,6 +255,7 @@ def construct_taper(npts, taper_type="tukey", alpha=0.2):
         raise ValueError("Taper type not supported: %s" % taper_type)
     return taper
 
+
 def nextpoweroftwo(number):
     """ Returns next power of two following 'number' """
     new_number = 1
@@ -259,7 +264,7 @@ def nextpoweroftwo(number):
     return new_number
 
 
-def timeshift_trace(tr: Trace, t0: float):
+def timeshift_trace_np2(tr: Trace, t0: float):
     """Takes in a seismic trace and shifts it in time using the fft."""
 
     N = len(tr.data)
@@ -272,6 +277,7 @@ def timeshift_trace(tr: Trace, t0: float):
     tr.data = np.real(scipy.ifft(
         scipy.fft(tr.data, n=Nfix)
         * np.exp(-1j*2*np.pi*freq*t0)))[0:N]
+
 
 def timeshift_mat(M, t0: float, delta: float):
     """Takes in a ismic trace and shifts it in time using the fft."""
@@ -288,6 +294,7 @@ def timeshift_mat(M, t0: float, delta: float):
         * np.exp(-1j*2*np.pi*freq*t0)))[:, 0:N]
 
     return M
+
 
 def timeshift_trace_pad(tr: Trace, t0: float):
     """Takes in a seismic trace and shifts it in time using the fft."""
@@ -320,19 +327,17 @@ def timeshift_trace(tr: Trace, t0: float):
 def timeshift_trace_roll_pad(tr: Trace, t0: float):
     """Takes in a seismic trace and shifts it in time using the fft."""
 
-    N = len(tr.data)
     nt0 = int(np.round(t0 / tr.stats.delta))
 
     # Compute timeshifted signal using roll
     tr.data = np.roll(np.pad(tr.data, (0, 1000), mode='constant',
                              constant_values=(0, 0)), nt0)[0:-1000]
 
+
 def timeshift_trace_roll(tr: Trace, t0: float):
     """Takes in a seismic trace and shifts it in time using the fft."""
 
-    N = len(tr.data)
     nt0 = int(np.round(t0 / tr.stats.delta))
 
     # Compute timeshifted signal using roll
     tr.data = np.roll(tr.data, nt0)
-

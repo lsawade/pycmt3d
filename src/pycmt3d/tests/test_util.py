@@ -20,7 +20,7 @@ from obspy import Trace
 import pycmt3d.util as util
 import numpy.testing as npt
 from obspy import read
-import matplotlib.pyplot as plt
+
 
 # Most generic way to get the data geology path.
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(
@@ -180,6 +180,7 @@ def test_timeshift_mat():
                                           nt0, axis=-1)[:, 0:-nt0],
                                   decimal=9)
 
+
 def test_timeshift():
 
     # Read data
@@ -197,6 +198,7 @@ def test_timeshift():
     # compare
     npt.assert_array_almost_equal(trshift.data,
                                   np.roll(tr.data, nt0), decimal=9)
+
 
 def test_timeshift_roll():
 

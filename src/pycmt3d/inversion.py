@@ -30,6 +30,7 @@ from .plot_util import PlotInvSummary
 from .plot_util import plot_seismograms
 import matplotlib.pyplot as plt
 from .util import dump_json
+plt.switch_backend("agg")
 
 
 class Inversion(object):
@@ -64,21 +65,20 @@ class Inversion(object):
                            self.cmt3d_config)
         self.cmt3d.source_inversion()
         self.cmt3d.compute_new_syn()
-        #self.cmt3d.plot_new_synt_seismograms(
+        # self.cmt3d.plot_new_synt_seismograms(
         # "/home/lsawade/pycmt3d/seis/cmt3d")
 
         if type(self.mt_config) == Grid3dConfig:
             # Grid search for CMT shift and
             self.G = Grid3d(self.cmt3d.new_cmtsource, self.data_container,
-                                self.mt_config)
+                            self.mt_config)
             self.G.grid_search()
-
 
             self.new_cmtsource = copy.deepcopy(self.G.new_cmtsource)
 
         elif type(self.mt_config) == Gradient3dConfig:
             self.grid3d = None
-            self.G = Gradient3d(self.cmt3d.new_cmtsource, self.data_container, 
+            self.G = Gradient3d(self.cmt3d.new_cmtsource, self.data_container,
                                 self.mt_config)
             self.G.search()
             self.new_cmtsource = copy.deepcopy(self.G.new_cmtsource)
@@ -110,8 +110,9 @@ class Inversion(object):
     def plot_summary(self, outputdir=".", figure_format="pdf",
                      mode="global"):
         """
-        Plot inversion summary, including source parameter change,if self.config.origin_time_inv:
-                
+        Plot inversion summary, including source parameter change,
+        if self.config.origin_time_inv:
+
         station distribution, and beach ball change.
 
         :param outputdir: output directory
@@ -133,9 +134,9 @@ class Inversion(object):
 
         # Fix time shift stats
         mean = copy.deepcopy(self.cmt3d.par_mean)
-        mean[9] = 1 #self.grid3d.t00_mean
+        mean[9] = 1  # self.grid3d.t00_mean
         std = copy.deepcopy(self.cmt3d.par_std)
-        std[9] = 1#self.grid3d.t00_std
+        std[9] = 1  # self.grid3d.t00_std
 
         plot_util = PlotInvSummary(
             data_container=self.data_container, config=self.cmt3d_config,
@@ -148,12 +149,11 @@ class Inversion(object):
             mode=mode, G=self.G)
         plot_util.plot_inversion_summary(figurename=figurename)
 
-
     def write_summary_json(self, outputdir=".", mode="global"):
         """This function uses all computed statistics and outputs a json
         file. Content will include the statistics table.
         cost reduction in. """
-        
+
         eventname = self.cmtsource.eventname
         npar = self.cmt3d_config.npar
         if self.cmt3d_config.double_couple:
@@ -173,10 +173,17 @@ class Inversion(object):
         outdict["oldcmt"] = self.cmtsource.__dict__
         outdict["newcmt"] = self.new_cmtsource.__dict__
         print(type([window.latitude for window in self.data_container.trwins]))
-        outdict["sta_lat"] = np.array([window.latitude for window in self.data_container.trwins]).tolist()
-        outdict["sta_lon"] = np.array([window.longitude for window in self.data_container.trwins]).tolist()
+        outdict["sta_lat"] = np.array([window.latitude
+                                       for window
+                                       in self.data_container.trwins]).tolist()
+        outdict["sta_lon"] = np.array([window.longitude
+                                       for window
+                                       in self.data_container.trwins]).tolist()
         outdict["nwindows"] = self.data_container.nwindows
-        outdict["nwin_on_trace"] = np.array([window.nwindows for window in self.data_container.trwins]).tolist()
+        outdict["nwin_on_trace"] = np.array([window.nwindows
+                                             for window
+                                             in self.data_container.trwins]
+                                            ).tolist()
 
         outdict["bootstrap_mean"] = self.cmt3d.par_mean.tolist()
         outdict["bootstrap_std"] = self.cmt3d.par_std.tolist()
@@ -184,7 +191,7 @@ class Inversion(object):
         outdict["nregions"] = self.cmt3d_config.weight_config.azi_bins
 
         outdict["var_reduction"] = self.G.var_reduction
-    
+
         outdict["G"] = {"method": self.G.config.method,
                         "tshift": self.G.t00_best,
                         "ascale": self.G.m00_best,
@@ -196,14 +203,19 @@ class Inversion(object):
                         "maxcost_array": self.G.maxcost_array.tolist(),
                         "mincost_array": self.G.mincost_array.tolist()}
         outdict["config"] = {"envelope_coef": self.cmt3d_config.envelope_coef,
-                             "npar": self.cmt3d_config.npar, 
+                             "npar": self.cmt3d_config.npar,
                              "zero_trace": self.cmt3d_config.zero_trace,
                              "double_couple": self.cmt3d_config.double_couple,
-                             "station_correction": self.cmt3d_config.station_correction,
+                             "station_correction":
+                             self.cmt3d_config.station_correction,
                              "damping": self.cmt3d.config.damping,
-                             "weight_config": 
-                             {"normalize_by_energy": self.cmt3d_config.weight_config.normalize_by_energy,
-                             "normalize_by_category": self.cmt3d_config.weight_config.normalize_by_category}}
+                             "weight_config":
+                             {"normalize_by_energy":
+                              self.cmt3d_config.weight_config
+                              .normalize_by_energy,
+                              "normalize_by_category":
+                              self.cmt3d_config.weight_config
+                              .normalize_by_category}}
         outdict["mode"] = mode
 
         dump_json(outdict, filename)

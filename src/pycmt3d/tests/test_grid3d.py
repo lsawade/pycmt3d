@@ -22,8 +22,6 @@ from pycmt3d import CMTSource
 from pycmt3d import DataContainer
 from pycmt3d import WeightConfig
 from pycmt3d import Grid3d, Grid3dConfig
-# import numpy.testing as npt
-
 
 # Most generic way to get the data geology path.
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(

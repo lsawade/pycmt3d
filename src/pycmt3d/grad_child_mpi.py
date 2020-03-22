@@ -15,11 +15,8 @@ from .gradient3d_mpi import Gradient
 from mpi4py import MPI
 import numpy as np
 from copy import deepcopy
-import pickle
-from .mpi_utils import MPI_comm
 from .mpi_utils import get_bcast_dictionary
 from .mpi_utils import send_result_dictionary
-from .mpi_utils import get_dictionary_size
 from . import logger
 
 comm = MPI.Comm.Get_parent()
@@ -33,25 +30,25 @@ results = deepcopy(d["sample_d"])
 
 
 for _i, job in enumerate(d["jobs"][rank]):
-    
+
     if comm.Get_rank() == 0:
-        logger.info("--> Computing approximately %d of %d ..." 
-                        % ((_i *comm.Get_size() + 1), 
-                            d["config"].bootstrap_repeat))
+        logger.info("--> Computing approximately %d of %d ..."
+                    % ((_i * comm.Get_size() + 1),
+                        d["config"].bootstrap_repeat))
 
     ind = d["randarray"][job]
 
     G = Gradient(d["obsd"][ind, :],
-                d["synt"][ind, :], 
-                d["tapers"][ind, :],
-                d["delta"],
-                method=d["config"].method,
-                ia=d["config"].ia, idt=d["config"].idt,
-                nt=d["config"].nt, nls=d["config"].nls, 
-                crit=d["config"].crit,
-                precond=d["config"].precond,
-                reg=d["config"].reg,
-                verbose=False)
+                 d["synt"][ind, :],
+                 d["tapers"][ind, :],
+                 d["delta"],
+                 method=d["config"].method,
+                 ia=d["config"].ia, idt=d["config"].idt,
+                 nt=d["config"].nt, nls=d["config"].nls,
+                 crit=d["config"].crit,
+                 precond=d["config"].precond,
+                 reg=d["config"].reg,
+                 verbose=False)
 
     G.gradient()
     results["dt"][_i] = G.dt

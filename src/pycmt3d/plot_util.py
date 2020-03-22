@@ -9,6 +9,7 @@ Plot utils
     GNU Lesser General Public License, version 3 (LGPLv3)
     (http://www.gnu.org/licenses/lgpl-3.0.en.html)
 """
+
 from __future__ import print_function, division, absolute_import
 import os
 from collections import defaultdict
@@ -16,7 +17,6 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-plt.switch_backend("agg")
 import matplotlib.gridspec as gridspec
 from matplotlib.patches import Rectangle
 from matplotlib.collections import LineCollection
@@ -27,12 +27,13 @@ from matplotlib import cm
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon
 from matplotlib.lines import Line2D
+import argparse
 import matplotlib.ticker as mticker
 from cartopy.crs import PlateCarree
 import cartopy
-from .source import CMTSource
 
 # From pycmt3d
+from .source import CMTSource
 from .geo_data_util import GeoMap
 from .data_container import DataContainer, TraceWindow
 from .grid3d import Grid3d
@@ -41,10 +42,12 @@ from . import logger
 from .util import get_cmt_par, get_trwin_tag
 from .util import load_json
 from .measure import _envelope
-import argparse
+
+plt.switch_backend("agg")
 
 # earth half circle
 EARTH_HC, _, _ = gps2dist_azimuth(0, 0, 0, 180)
+
 
 class Struct(object):
     def __init__(self, **entries):
@@ -52,6 +55,7 @@ class Struct(object):
         for k, v in self.__dict__.items():
             if isinstance(v, dict):
                 self.__dict__[k] = Struct(**v)
+
 
 def get_new_locations(lat1, lon1, lat2, lon2, padding):
     """ Get new plodding locations
@@ -99,7 +103,7 @@ def get_new_locations(lat1, lon1, lat2, lon2, padding):
     return newlat1, newlon1, newlat2, newlon2
 
 
-def _plot_new_seismogram_sub(trwin: TraceWindow, outputdir, 
+def _plot_new_seismogram_sub(trwin: TraceWindow, outputdir,
                              cmtsource, figure_format):
     obsd = trwin.datalist['obsd']
     synt = trwin.datalist['synt']
@@ -314,51 +318,53 @@ class PlotInvSummary(object):
                  bootstrap_std=None, var_reduction=0.0,
                  mode="regional", G=None):
         """ Plots inversion summary with all necessary information.
-        
+
         Args:
-            data_container (pycmt3d.data_container.DataContainer or dict): 
+            data_container (pycmt3d.data_container.DataContainer or dict):
             The datacontainer is the full fata container used in the inversion
             itself. Defaults to None.
-            cmtsource (pycmt3d.source.CMTSource): original cmtsource. Defaults to None.
-            config (pycmt3d.config.Config, optional): Configuration class 
-                                                    used for the inversion. 
+            cmtsource (pycmt3d.source.CMTSource): original cmtsource.
+                                                  Defaults to None.
+            config (pycmt3d.config.Config, optional): Configuration class
+                                                    used for the inversion.
                                                     Defaults to None.
             nregions (int, optional): Number of bins in the station and window
                                     histograms. Defaults to 12.
             new_cmtsource (pycmt3d.source.CMTSource): inverted cmtsolution.
                                                     Defaults to None.
-            bootstrap_mean (numpy.ndarray, optional): Bootstrap mean. Defaults to None
+            bootstrap_mean (numpy.ndarray, optional): Bootstrap mean.
+                                                      Defaults to None
             bootstrap_std (numpy.ndarray): bootstrap std. Defaults to None.
             M0_stats (numpy.ndarray, optional): statistics on gradient method.
-            var_reduction (float, optional): Variance reduction overwrite. Defaults to 0.0.
+            var_reduction (float, optional): Variance reduction overwrite.
+                                             Defaults to 0.0.
             mode (str, optional): Plot mode. Defaults to "regional".
-            G (pycmt3d.grid3d.Grid3d or pycmt3d.gradient3d or dict, optional): 
+            G (pycmt3d.grid3d.Grid3d or pycmt3d.gradient3d or dict, optional):
                 input grid search or gradient data. Defaults to None.
         """
 
         if type(data_container) == DataContainer:
             self.data_container = data_container
             self.nwindows = data_container.nwindows
-            self.sta_lat = [window.latitude for window in self.data_container.trwins]
-            self.sta_lon = [window.longitude for window in self.data_container.trwins]
-            self.nwin_on_trace = [window.latitude for window in self.data_container.trwins]
+            self.sta_lat = [window.latitude
+                            for window in self.data_container.trwins]
+            self.sta_lon = [window.longitude
+                            for window in self.data_container.trwins]
+            self.nwin_on_trace = [window.nwindows
+                                  for window in self.data_container.trwins]
+
         elif type(data_container) == dict:
             self.sta_lon = data_container["sta_lon"]
             self.sta_lat = data_container["sta_lat"]
             self.nwindows = data_container["nwindows"]
             self.nwin_on_trace = data_container["nwin_on_trace"]
+
         else:
             self.sta_lat = None
             self.sta_lon = None
             self.nwindows = None
             self.nwin_on_trace = None
 
-        print(type(self.sta_lon))
-        print(self.sta_lon)
-        print(type(self.sta_lat))
-        print(self.sta_lat)
-        for lat in self.sta_lat:
-            print(lat)
         self.cmtsource = cmtsource
         self.config = config
         self.nregions = nregions
@@ -394,12 +400,12 @@ class PlotInvSummary(object):
             self.bootstrap_mean[9] = self.G.bootstrap_mean[1]
             self.bootstrap_std[9] = self.G.bootstrap_std[1]
             # Fix moment
-            self.bootstrap_mean = np.append(self.bootstrap_mean, 
-                                            self.G.bootstrap_mean[0] 
+            self.bootstrap_mean = np.append(self.bootstrap_mean,
+                                            self.G.bootstrap_mean[0]
                                             * self.cmtsource.M0)
             self.bootstrap_std = np.append(self.bootstrap_std,
-                                        self.G.bootstrap_std[0] 
-                                        * self.cmtsource.M0)
+                                           self.G.bootstrap_std[0]
+                                           * self.cmtsource.M0)
         elif type(G) == Grid3d:
 
             self.G = G
@@ -424,7 +430,7 @@ class PlotInvSummary(object):
 
     @classmethod
     def from_JSON(cls, filename):
-    
+
         print(os.path.abspath(filename))
         d = load_json(os.path.abspath(filename))
         print(d)
@@ -443,15 +449,14 @@ class PlotInvSummary(object):
         mode = d["mode"]
         G = d["G"]
         print(G)
-               # final scaling and shift
-               # misfit reduction
-               # bootstrap misfit reduction min
-               # bootstrap misfit reduction max
-               # bootstrap misfit reduction std
-               # bootstrap misfit reduction mean
-        
+        # final scaling and shift
+        # misfit reduction
+        # bootstrap misfit reduction min
+        # bootstrap misfit reduction max
+        # bootstrap misfit reduction std
+        # bootstrap misfit reduction mean
 
-        return cls(data_container=data_container, cmtsource=cmtsource, 
+        return cls(data_container=data_container, cmtsource=cmtsource,
                    config=config, nregions=nregions,
                    new_cmtsource=new_cmtsource,
                    bootstrap_mean=bootstrap_mean,
@@ -525,7 +530,7 @@ class PlotInvSummary(object):
         text = "Mw=%4.3f" % cmt.moment_magnitude
         plt.text(-0.9, -0.3, text, fontsize=9)
         # lat and lon
-        text = "lat=%6.3f$^\\circ$; lon=%6.3f$^\\circ$" \
+        text = r"lat=%6.3f$^\circ$; lon=%6.3f$^\circ$" \
                % (cmt.latitude, cmt.longitude)
         plt.text(-0.9, -0.5, text, fontsize=9)
         # depth
@@ -550,8 +555,8 @@ class PlotInvSummary(object):
         ax.set_ylim([-1, 1.5])
         ax.set_aspect('equal')
         # magnitude
-        text = r"$\Delta$Mw=%4.3f" % (
-                cmt.moment_magnitude - cmt_init.moment_magnitude)
+        text = r"$\Delta$Mw=%4.3f" % (cmt.moment_magnitude
+                                      - cmt_init.moment_magnitude)
         plt.text(-0.9, -0.3, text, fontsize=9)
         # lat and lon
         text = r"$\Delta$lat=%6.3f$^\circ$; $\Delta$lon=%6.3f$^\circ$" \
@@ -559,8 +564,9 @@ class PlotInvSummary(object):
                   cmt.longitude - cmt_init.longitude)
         plt.text(-0.9, -0.5, text, fontsize=9)
         # depth
-        text = r"$\Delta$dep=%6.3f km;" % (
-                (cmt.depth_in_m - cmt_init.depth_in_m) / 1000.0)
+        text = r"$\Delta$dep=%6.3f km;" % ((cmt.depth_in_m
+                                            - cmt_init.depth_in_m)
+                                           / 1000.0)
         plt.text(-0.9, -0.7, text, fontsize=9)
         ax.set_xticks([])
         ax.set_yticks([])
@@ -685,7 +691,7 @@ class PlotInvSummary(object):
         text = "M0: " + format1 % (
             self.cmtsource.M0, self.new_cmtsource.M0,
             self.bootstrap_mean[-1], self.bootstrap_std[-1],
-            self.bootstrap_std[-1] / self.bootstrap_mean[-1]* 100)
+            self.bootstrap_std[-1] / self.bootstrap_mean[-1] * 100)
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
@@ -936,7 +942,7 @@ class PlotInvSummary(object):
                               padding)
 
         # Plot points
-        markersize=7.5
+        markersize = 7.5
         ax.plot(cmt_lon, cmt_lat, "k.", zorder=200,
                 markersize=markersize)
         ax.plot(new_cmt_lon, new_cmt_lat, "k.", zorder=200,
@@ -1009,33 +1015,34 @@ class PlotInvSummary(object):
         ax.axis('off')
 
     def plot_cost(self):
-       
+
         ax = plt.gca()
 
         x = np.arange(0, self.G.mincost_array.shape[0], 1)
         ax.fill_between(x, self.G.mincost_array, self.G.maxcost_array,
                         color='lightgray', label="min/max")
-        ax.fill_between(x, self.G.meancost_array - self.G.stdcost_array, 
+        ax.fill_between(x, self.G.meancost_array - self.G.stdcost_array,
                         self.G.meancost_array + self.G.stdcost_array,
-                        color='darkgray', label="$\\bar{\\chi}\\pm\\sigma$")
-        ax.plot(self.G.meancost_array, 'k', label="$\\bar{\\chi}$")
+                        color='darkgray', label=r"$\bar{\chi}\pm\sigma$")
+        ax.plot(self.G.meancost_array, 'k', label=r"$\bar{\chi}$")
 
         if type(self.G) == Gradient3d:
             method = self.G.config.method
         else:
             method = self.G.method
-            
+
         if method == "gn":
             label = "Gauss-Newton"
         else:
             label = "Newton"
 
         ax.plot(self.G.chi_list, "r",
-                label="%s ($\mathcal{C}_{min} = %.3f$)" % (label, self.G.chi_list[-1]))
+                label=r"%s ($\mathcal{C}_{min} = %.3f$)"
+                % (label, self.G.chi_list[-1]))
         plt.legend(prop={'size': 6}, fancybox=False, framealpha=1)
         ax.set_xlabel("Iteration #")
         ax.set_ylabel("Misfit reduction")
-        ax.set_ylim([0,1])
+        ax.set_ylim([0, 1])
 
     def plot_inversion_summary(self, figurename=None):
         """
@@ -1063,15 +1070,10 @@ class PlotInvSummary(object):
             plt.subplot(g[1, 0], polar=True)
             self.plot_sta_dist_azi()
 
-        # Misfit reduction of gridsearch or station azimuth histogram
-        if type(self.G) == Grid3d:
-            plt.subplot(g[1, 1])
-            self.G.plot_cost()
-        # elif type(self.G) in [Gradient3d, Struct]:
-        #     plt.subplot(g[1, 1])   
-        else:
-            plt.subplot(g[1, 1], polar=True)
-            self.plot_sta_azi()
+        #  station azimuth histogram
+        plt.subplot(g[1, 1], polar=True)
+        self.plot_sta_azi()
+
         # Plot window azimuth histogram
         plt.subplot(g[1, 2], polar=True)
         self.plot_win_azi()
@@ -1104,4 +1106,4 @@ if __name__ == "__main__":
 
     # Run
     pl = PlotInvSummary.from_JSON(args.filename)
-    pl.plot_inversion_summary(figurename="/home/lsawade/trying_hard.pdf")
+    pl.plot_inversion_summary(figurename="/Users/lucassawade/trying_hard.pdf")

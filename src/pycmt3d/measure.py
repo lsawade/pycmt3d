@@ -15,7 +15,6 @@ from scipy.signal import hilbert
 
 from .util import construct_taper, check_trace_consistent, get_window_idx
 from . import constant
-from . import logger
 from .util import timeshift_mat
 
 
@@ -485,6 +484,7 @@ def calculate_waveform_misfit_on_trace(obsd, synt, win_time,
                                                 taper=taper)
     return v1_array
 
+
 def calculate_waveform_timeshift_on_data(obsd, synt, dt, win_time):
     """
     Calculate the variance reduction on a pair of obsd and
@@ -523,9 +523,11 @@ def compute_timeshift(obsd, synt, windows, delta):
 
     return np.mean(dts)
 
+
 def compute_ratio(obsd, synt, tapers):
     return np.sqrt(np.mean(np.sum(obsd ** 2 * tapers, axis=-1)
-                   /np.sum(synt ** 2 * tapers, axis=-1)))
+                   / np.sum(synt ** 2 * tapers, axis=-1)))
+
 
 def construct_matrices(data_container, weights, use_new):
     """Computes amplitude and cross correlation misfit for moment scaling
@@ -569,17 +571,20 @@ def construct_matrices(data_container, weights, use_new):
 
     return obsd, synt, delta, tapers
 
+
 def get_window_list(data_container):
     windows = []
     for _k, trwin in enumerate(data_container):
         windows.append(trwin.windows)
     return windows
 
+
 def compute_misfit(obsd, synt, tapers, m0, t0, delta, counter, N):
 
     # logger.info("%d/%d" % (counter, N))
     return np.sum(tapers * (obsd - timeshift_mat(synt*m0, t0, delta)) ** 2,
                   axis=None)
+
 
 def compute_new_syn_on_trwin(datalist, parlist, dcmt_par, dm):
     """
