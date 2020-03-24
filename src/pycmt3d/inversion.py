@@ -44,7 +44,9 @@ class Inversion(object):
 
         :param cmt3d: cmt3d inversion class for the 6 moment tensor parameters
                       and the location (lat, lon, depth)
-        :param mt_config: config for method to find timeshift and scalar moment
+        :param mt_config: config for method to find timeshift and scalar moment.
+                          If set to None no improved scalar moment and
+                          gradient is found. Default None.
 
         """
 
@@ -82,6 +84,8 @@ class Inversion(object):
                                 self.mt_config)
             self.G.search()
             self.new_cmtsource = copy.deepcopy(self.G.new_cmtsource)
+        else:
+            self.new_cmtsource = copy.deepcopy(self.cmt3d.new_cmtsource)
 
     def plot_new_synt_seismograms(self, outputdir, figure_format="pdf"):
         """
