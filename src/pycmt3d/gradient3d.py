@@ -481,8 +481,11 @@ class Gradient3d(object):
         # Prepare weights
         if self.config.weight_data:
             weights = []
-            for meta in self.metas:
-                weights.extend(meta.weights)
+            for _meta in self.metas:
+                if self.config.weight_config.normalize_by_energy:
+                    weights.extend(_meta.weights / _meta.prov["wav_energy"])
+                else:
+                    weights.extend(_meta.weights)
             weights = np.array(weights)
         else:
             if self.data_container.nwindows:

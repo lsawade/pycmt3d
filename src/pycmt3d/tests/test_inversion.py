@@ -105,6 +105,7 @@ def test_inversion(cmtsource, tmpdir):
     inv.source_inversion()
     inv.plot_summary(str(tmpdir))
 
+
 def test_inversion_no_grid(cmtsource, tmpdir):
 
     dcon_two = construct_dcon_two()
@@ -125,6 +126,7 @@ def test_inversion_no_grid(cmtsource, tmpdir):
     inv = Inversion(cmtsource, dcon_two, cmt3d_config, mt_config=None)
     inv.source_inversion()
     inv.plot_summary(str(tmpdir))
+
 
 def test_inversion_grad(cmtsource, tmpdir):
 
@@ -159,6 +161,7 @@ def test_inversion_grad(cmtsource, tmpdir):
     inv.source_inversion()
     inv.write_summary_json(str(tmpdir))
     inv.plot_summary(str(tmpdir))
+
 
 if __name__ == "__main__":
     outdir = "."

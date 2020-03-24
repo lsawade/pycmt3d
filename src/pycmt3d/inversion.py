@@ -44,7 +44,8 @@ class Inversion(object):
 
         :param cmt3d: cmt3d inversion class for the 6 moment tensor parameters
                       and the location (lat, lon, depth)
-        :param mt_config: config for method to find timeshift and scalar moment.
+        :param mt_config: config for method to find timeshift and
+                          scalar moment.
                           If set to None no improved scalar moment and
                           gradient is found. Default None.
 
