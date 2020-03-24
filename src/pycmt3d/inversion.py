@@ -23,8 +23,8 @@ from .cmt3d import Cmt3D
 from .source import CMTSource
 from .grid3d import Grid3d
 from .grid3d import Grid3dConfig
-from .gradient3d_mpi import Gradient3d
-from .gradient3d_mpi import Gradient3dConfig
+from . import gradient3d
+from . import gradient3d_mpi
 from .data_container import DataContainer
 from .plot_util import PlotInvSummary
 from .plot_util import plot_seismograms
@@ -58,6 +58,9 @@ class Inversion(object):
         # Things to be computed
         self.new_cmtsource = None
 
+        # Variance Reduction
+        self.var_reduction = None
+
     def source_inversion(self):
         """Uses the different classes to both invert for the parameters and
         grid_search."""
@@ -78,14 +81,32 @@ class Inversion(object):
 
             self.new_cmtsource = copy.deepcopy(self.G.new_cmtsource)
 
-        elif type(self.mt_config) == Gradient3dConfig:
+            self.var_reduction = self.G.var_reduction
+
+        elif type(self.mt_config) in [gradient3d.Gradient3dConfig,
+                                      gradient3d_mpi.Gradient3dConfig]:
             self.grid3d = None
-            self.G = Gradient3d(self.cmt3d.new_cmtsource, self.data_container,
-                                self.mt_config)
+
+            if type(self.mt_config) == gradient3d.Gradient3dConfig:
+                self.G = gradient3d.Gradient3d(
+                    self.cmt3d.new_cmtsource,
+                    self.data_container,
+                    self.mt_config)
+            else:
+                self.G = gradient3d_mpi.Gradient3d(
+                    self.cmt3d.new_cmtsource,
+                    self.data_container,
+                    self.mt_config)
+
             self.G.search()
             self.new_cmtsource = copy.deepcopy(self.G.new_cmtsource)
+
+            self.var_reduction = self.G.var_reduction
+
         else:
+            self.G = None
             self.new_cmtsource = copy.deepcopy(self.cmt3d.new_cmtsource)
+            self.var_reduction = self.cmt3d.var_reduction
 
     def plot_new_synt_seismograms(self, outputdir, figure_format="pdf"):
         """
@@ -149,7 +170,7 @@ class Inversion(object):
             new_cmtsource=self.new_cmtsource,
             bootstrap_mean=self.cmt3d.par_mean,
             bootstrap_std=self.cmt3d.par_std,
-            var_reduction=self.G.var_reduction,
+            var_reduction=self.var_reduction,
             mode=mode, G=self.G)
         plot_util.plot_inversion_summary(figurename=figurename)
 
