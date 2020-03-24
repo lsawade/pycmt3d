@@ -84,7 +84,7 @@ setup(
     install_requires=[
         "obspy>=1.0.0", "numpy", "future>=0.14.1", "flake8",
         "scipy", "spaceweight", "cartopy", "pyshp", "geographiclib",
-        "owslib", "lxml", "psutil"
+        "owslib", "lxml", "psutil", "joblib"
     ],
     extras_require={
         "docs": ["sphinx"]
