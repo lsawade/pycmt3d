@@ -26,7 +26,7 @@ from .source import CMTSource
 from .data_container import DataContainer
 from .data_container import MetaInfo
 from . import logger
-from .weight import Weight
+from .weight import Weight, setup_energy_weight
 from .measure import calculate_variance_on_trace
 # from .plot_util import PlotStats
 from .util import timeshift_mat
@@ -315,6 +315,8 @@ class Gradient3d(object):
                                  "on meta: %s %s" % (meta.id, weight_meta.id))
             meta.weights = weight_meta.weights
             meta.prov.update(weight_meta.prov)
+
+        setup_energy_weight(self.metas, self.data_container)
 
     def _init_metas(self):
         """
