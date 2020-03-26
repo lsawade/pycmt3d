@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 """
 Class for source inversion
+
 :copyright:
     Wenjie Lei (lei@princeton.edu), 2016
-
 :license:
     GNU Lesser General Public License, version 3 (LGPLv3)
     (http://www.gnu.org/licenses/lgpl-3.0.en.html)
@@ -30,6 +30,7 @@ from .log_util import print_inversion_summary
 def generate_newcmtsource(oldcmt, new_cmt_par):
     """
     Convert new_cmt_par array to self.new_cmtsource
+
     :return:
     """
     newcmt = deepcopy(oldcmt)
@@ -54,6 +55,7 @@ def generate_newcmtsource(oldcmt, new_cmt_par):
 class Cmt3D(object):
     """
     Class that handles the solver part of source inversion
+
     :param cmtsource: earthquake source
     :type cmtsource: :class:`pycmt3d.CMTSource`
     :param data_container: all data and window
@@ -108,6 +110,7 @@ class Cmt3D(object):
     def setup_window_weight(self):
         """
         Use Window information to setup weight for each window.
+
         :returns:
         """
         if not self.config.weight_data:
@@ -145,6 +148,7 @@ class Cmt3D(object):
     def setup_measurement_matrix(self):
         """
         Calculate A and b for all windows
+
         :return:
         """
         logger.info("*" * 15)
@@ -251,6 +255,7 @@ class Cmt3D(object):
         ensemble all measurements together to form Matrix A and vector
         b to solve the A * (dm) = b
         A is the Hessian Matrix and b is the misfit
+
         :return:
         """
         logger.info("*"*15)
@@ -298,6 +303,7 @@ class Cmt3D(object):
         """
         It is used to evaluate the mean, standard deviation, and variance
         of new parameters
+
         :return:
         """
         logger.info("Bootstrap Inversion")
@@ -357,14 +363,100 @@ class Cmt3D(object):
         if self.config.bootstrap:
             self.invert_bootstrap()
 
+        if self.config.dtx:
+            self.find_time_shift()
+
+        if self.config.dM0:
+            self.find_M0_shift()
+
         print_inversion_summary(
             self.config.npar, self.cmtsource, self.new_cmtsource,
             bootstrap=self.config.bootstrap, bmean=self.par_mean,
             bstd=self.par_std, bstd_over_mean=self.std_over_mean)
 
+    def find_time_shift(self):
+        """Finds time shif base on average time shift across windows"""
+
+        logger.info(10*'-' + ' Finding Mean CMT Time Shift ' + 10*'-')
+
+        # Initialize time shift change
+        t_counter = 0
+        tshift_tot = 0
+
+        for meta in self.metas:
+            # Variance window metrics
+            var = meta.prov["new_synt"]
+
+            tshift_tot += np.sum(var["tshift"])
+            t_counter += len(var["tshift"])
+
+        if t_counter >= 2:
+
+            self.mean_tshift = tshift_tot/t_counter
+            if self.mean_tshift <= 2:
+                self.new_cmtsource.cmt_time = self.new_cmtsource.cmt_time \
+                    + self.mean_tshift
+                logger.info('Time shift applied: %2.3f s.'
+                            % (self.mean_tshift))
+                print(self.new_cmtsource.cmt_time)
+            else:
+                logger.info('Time shift to large. Not applied.')
+
+        else:
+            logger.info('Not enough window measurements to perform'
+                        'time shift.')
+
+        logger.info(47*'-')
+
+    def find_M0_shift(self):
+        """Finds time shift based on average time shift across windows."""
+
+        logger.info(10*'-' + ' Finding Mean Scalar Moment Change ' + 10*'-')
+
+        # Initialize Magnitude change
+        M0_counter = 0
+        M0_tot_change = 0
+
+        for meta in self.metas:
+            # Variance window metrics
+            var = meta.prov["new_synt"]
+
+            M0_tot_change += np.sum(np.sqrt(var["chi"]))
+            M0_counter += len(var["chi"])
+
+        if M0_counter >= 2:
+
+            self.mean_M0_change = M0_tot_change / M0_counter
+
+            # Compute scaling factor
+            self.m00_best = 1 + self.mean_M0_change
+
+            # Check if magnitude scaling is robust.
+            if self.mean_M0_change < 0.1:
+
+                # Changing the value
+                attrs = ["m_rr", "m_tt", "m_pp", "m_rt", "m_rp", "m_tp"]
+                for attr in attrs:
+                    newval = self.m00_best * getattr(self.new_cmtsource, attr)
+                    setattr(self.new_cmtsource, attr, newval)
+
+                logger.info('Magnitude scaling factor: %3.000f%%'
+                            % (self.m00_best*100))
+            # IF Magnitude scaling to large, don't bother
+            else:
+                logger.info('Magnitude scaling factor: %3.000f%% not robust.'
+                            'Omitted.' % (self.m00_best*100))
+
+        # If too little windows, don't bother
+        else:
+            logger.info('Mean energy change not used because less'
+                        'than 2 windows were found.')
+        logger.info(53*'-')
+
     def calculate_variance(self):
         """
         Calculate variance reduction based on old and new source solution
+
         :return:
         """
         var_all = 0.0
@@ -389,8 +481,8 @@ class Cmt3D(object):
                                             self.config.taper_type)
 
             var_all += np.sum(0.5 * meta.prov["synt"]["chi"] * meta.weights)
-            var_all_new += np.sum(0.5 * meta.prov["new_synt"]["chi"] *
-                                  meta.weights)
+            var_all_new += np.sum(0.5 * meta.prov["new_synt"]["chi"]
+                                  * meta.weights)
 
         logger.info(
             "Total Variance Reduced from %e to %e ===== %f %%"
@@ -442,6 +534,7 @@ class Cmt3D(object):
         """
         Plot inversion summary, including source parameter change,
         station distribution, and beach ball change.
+
         :param outputdir: output directory
         :return:
         """
@@ -473,6 +566,7 @@ class Cmt3D(object):
         Plot inversion histogram, including histograms of tshift, cc,
         power_l1, power_l2, cc_amp, chi values before and after the
         inversion.
+
         :param outputdir:
         :return:
         """

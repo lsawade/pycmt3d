@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Measurement util functions
+
 :copyright:
     Wenjie Lei (lei@princeton.edu), 2016
 :license:
@@ -106,6 +107,7 @@ def measure_window(obsd_array, synt_array, istart, iend,
     """
     Make measurements on windows. If station_correction, correct window
     idx first based on cross-correlation time shift measurement.
+
     :param obsd: obsd data array
     :param synt: synt data array
     :param istart: start index of original window
@@ -137,6 +139,7 @@ def measure_window(obsd_array, synt_array, istart, iend,
 def get_f_df(npar, A, b, m, lam, mstart, fij, f0):
     """
     Iterative solver for Non-linear case(double-couple constraint)
+
     :param A: basic Hessian matrix
     :param b: basic misfit vector
     :param m: current source array
@@ -164,8 +167,8 @@ def get_f_df(npar, A, b, m, lam, mstart, fij, f0):
 
     # f(x^i) = H_jk (m_k^i -m_k^0) - b_j + lam_1 * U_j + lam_2 * V_j (A11)
     f0.fill(0.)
-    f0[0:npar] = np.dot(A[0:npar, 0:npar], m[0:npar] -
-                        mstart[0:npar]) - b[0:npar]
+    f0[0:npar] = np.dot(A[0:npar, 0:npar], m[0:npar]
+                        - mstart[0:npar]) - b[0:npar]
     # print "f0 step1:", f0
     f0[0:constant.NM] += \
         lam[0] * dc1_dm[0:constant.NM] + lam[1] * dc2_dm[0:constant.NM]
@@ -205,6 +208,7 @@ def calculate_dsyn(datalist, win_idx, parlist, dcmt_par, taper_type="tukey"):
     Calculate dsyn matrix based on perturbed seismograms. Only synt
     and perturbed synthetic are used here:
     dsyn = synt_perturbation / perturbation.
+
     :param datalist:
     :return:
     """
@@ -222,8 +226,8 @@ def calculate_dsyn(datalist, win_idx, parlist, dcmt_par, taper_type="tukey"):
         elif itype < constant.NML:
             # location, finite difference to get dsyn
             dsyn[itype, :] = \
-                (datalist[type_name].data[istart:iend] -
-                 datalist['synt'].data[istart:iend]) / dcmt_par[itype]
+                (datalist[type_name].data[istart:iend]
+                 - datalist['synt'].data[istart:iend]) / dcmt_par[itype]
         elif itype == constant.NML:
             # time shift
             dt = datalist['synt'].stats.delta
@@ -250,6 +254,7 @@ def calculate_denv(datalist, win_idx, parlist, dcmt_par, taper_type):
     Calculate dsyn matrix based on perturbed seismograms. Only synt
     and perturbed synthetic are used here:
     dsyn = synt_perturbation / perturbation.
+
     :param datalist:
     :return:
     """
@@ -264,16 +269,16 @@ def calculate_denv(datalist, win_idx, parlist, dcmt_par, taper_type):
         if itype < constant.NM:
             # moment tensor, linear term
             denv[itype, :] = \
-                (_envelope(taper * (datalist['synt'].data[istart:iend] +
-                                    datalist[type_name].data[istart:iend])) -
-                 _envelope(taper * (datalist['synt'].data[istart:iend]))) / \
-                dcmt_par[itype]
+                (_envelope(taper * (datalist['synt'].data[istart:iend]
+                                    + datalist[type_name].data[istart:iend]))
+                    - _envelope(taper * (datalist['synt'].data[istart:iend])))\
+                / dcmt_par[itype]
         elif itype < constant.NML:
             # location, finite difference to get denv
             denv[itype, :] = \
-                (_envelope(taper * datalist[type_name].data[istart:iend]) -
-                 _envelope(taper * datalist['synt'].data[istart:iend])) / \
-                dcmt_par[itype]
+                (_envelope(taper * datalist[type_name].data[istart:iend])
+                    - _envelope(taper * datalist['synt'].data[istart:iend]))\
+                / dcmt_par[itype]
         elif itype == constant.NML:
             # time shift
             dt = datalist['synt'].stats.delta
@@ -294,6 +299,7 @@ def compute_derivatives(datalist, win_time, parlist, dcmt_par,
     """
     Calculate the matrix A and vector b based on one pair of
     observed data and synthetic data on a given window.
+
     :param window: data and window information
     :type window: :class:`pycmt3d.Window`
     :param win_idx: window index(a specific window)
@@ -333,10 +339,9 @@ def compute_envelope_matrix(denv, obsd, synt, dt, win_idx, taper_type):
     taper = construct_taper(iend_s - istart_s, taper_type=taper_type)
 
     A1 = np.dot(denv, denv.transpose()) * dt
-    b1 = np.sum(
-        (np.abs(hilbert(taper * obs_array[istart_d:iend_d])) -
-         np.abs(hilbert(taper * syn_array[istart_s:iend_s]))) *
-        denv * dt, axis=1)
+    b1 = np.sum((np.abs(hilbert(taper * obs_array[istart_d:iend_d]))
+                - np.abs(hilbert(taper * syn_array[istart_s:iend_s])))
+                * denv * dt, axis=1)
     return A1, b1
 
 
@@ -356,9 +361,9 @@ def compute_waveform_matrix(dsyn, obsd, synt, dt, win_idx, taper_type):
 
     A1 = np.dot(dsyn, dsyn.transpose()) * dt
     b1 = np.sum(
-        taper * (obs_array[istart_d:iend_d] -
-                 syn_array[istart_s:iend_s]) *
-        dsyn * dt, axis=1)
+        taper * (obs_array[istart_d:iend_d]
+                 - syn_array[istart_s:iend_s])
+        * dsyn * dt, axis=1)
 
     return A1, b1
 
@@ -380,14 +385,14 @@ def compute_envelope_matrix_theo(dsyn, obsd, synt, dt, win_idx, taper):
     syn_env = np.abs(syn_analytic)
     dsyn_hilbert = np.imag(hilbert(dsyn))
     env_derivss = \
-        syn_env ** (-0.5) * (syn_array[istart:iend] * dsyn +
-                             syn_hilbert * dsyn_hilbert)
+        syn_env ** (-0.5) * (syn_array[istart:iend] * dsyn
+                             + syn_hilbert * dsyn_hilbert)
 
     A1 = np.dot(env_derivss, env_derivss.transpose()) * dt
     b1 = np.sum(
-        (np.abs(hilbert(taper * obs_array[istart:iend])) -
-         np.abs(hilbert(taper * syn_array[istart:iend]))) *
-        env_derivss * dt, axis=1)
+        (np.abs(hilbert(taper * obs_array[istart:iend]))
+         - np.abs(hilbert(taper * syn_array[istart:iend])))
+        * env_derivss * dt, axis=1)
     return A1, b1
 
 
@@ -395,6 +400,7 @@ def calculate_variance_on_trace(obsd, synt, win_time, taper_type="tukey"):
     """
     Calculate the variance reduction on a pair of obsd and
     synt and windows
+
     :param obsd: observed data trace
     :type obsd: :class:`obspy.core.trace.Trace`
     :param synt: synthetic data trace
@@ -447,43 +453,6 @@ def calculate_variance_on_trace(obsd, synt, win_time, taper_type="tukey"):
     return var
 
 
-def compute_new_syn_on_trwin(datalist, parlist, dcmt_par, dm):
-    """
-    Compute new synthetic data based on gradient(datalist, and dcmt_par)
-    and perturbation(dm). Be careful about dm here becuase dcmt_par has
-    been scaled.
-    :param datalist: dictionary of all data
-    :param dm: CMTSolution perterbation, i.e.,
-    (self.new_cmt_par-self.cmt_par)
-    :return:
-    """
-    # get a dummy copy to keep meta data information
-    datalist['new_synt'] = datalist['synt'].copy()
-
-    npar = len(parlist)
-    npts = datalist['synt'].stats.npts
-    dt = datalist['synt'].stats.delta
-    dsyn = np.zeros([npts, npar])
-
-    for i in range(npar):
-        if i < constant.NM:
-            dsyn[:, i] = datalist[parlist[i]].data / dcmt_par[i]
-        elif i < constant.NML:
-            dsyn[:, i] = (datalist[parlist[i]].data -
-                          datalist['synt'].data) / dcmt_par[i]
-        elif i == constant.NML:
-            dsyn[0:(npts - 1), i] = \
-                -(datalist['synt'].data[1:npts] -
-                  datalist[0:(npts - 1)]) / (dt * dcmt_par[i])
-            dsyn[npts - 1, i] = dsyn[npts - 2, i]
-        elif i == (constant.NML + 1):
-            # not implement yet....
-            raise ValueError("For npar == 10 or 11, not implemented yet")
-
-    datalist['new_synt'].data = \
-        datalist['synt'].data + np.dot(dsyn, dm[:npar])
-
-
 def calculate_waveform_misfit_on_trace(obsd, synt, win_time,
                                        taper_type="tukey"):
     """
@@ -514,6 +483,50 @@ def calculate_waveform_misfit_on_trace(obsd, synt, win_time,
                                                 synt.data[istart:iend],
                                                 taper=taper)
     return v1_array
+
+
+def calculate_waveform_timeshift_on_data(obsd, synt, dt, win_time):
+    """
+    Calculate the variance reduction on a pair of obsd and
+    synt and windows
+
+    :param obsd: observed data trace
+    :type obsd: :class:`obspy.core.trace.Trace`
+    :param synt: synthetic data trace
+    :type synt: :class:`obspy.core.trace.Trace`
+    :param win_time: [win_start, win_end]
+    :type win_time: :class:`list` or :class:`numpy.array`
+    :return:  L2 waveform misfit on trace windows
+    :rtype: [float, float]
+    """
+
+    win_time = np.array(win_time)
+    num_wins = win_time.shape[0]
+
+    xnt = np.zeros(num_wins)
+
+    for _win_idx in range(win_time.shape[0]):
+        istart, iend = get_window_idx(win_time[_win_idx], dt)
+
+        _, xnt[_win_idx] = _xcorr_win_(obsd[istart:iend],
+                                       synt[istart:iend])
+    return np.mean(xnt) * dt
+
+
+def compute_timeshift(obsd, synt, windows, delta):
+
+    dts = np.zeros(obsd.shape[0])
+
+    for _i, (obs, syn, win) in enumerate(zip(obsd, synt, windows)):
+
+        dts[_i] = calculate_waveform_timeshift_on_data(obs, syn, delta, win)
+
+    return np.mean(dts)
+
+
+def compute_ratio(obsd, synt, tapers):
+    return np.sqrt(np.mean(np.sum(obsd ** 2 * tapers, axis=-1)
+                   / np.sum(synt ** 2 * tapers, axis=-1)))
 
 
 def construct_matrices(data_container, weights, use_new):
@@ -559,8 +572,53 @@ def construct_matrices(data_container, weights, use_new):
     return obsd, synt, delta, tapers
 
 
+def get_window_list(data_container):
+    windows = []
+    for _k, trwin in enumerate(data_container):
+        windows.append(trwin.windows)
+    return windows
+
+
 def compute_misfit(obsd, synt, tapers, m0, t0, delta, counter, N):
 
     # logger.info("%d/%d" % (counter, N))
     return np.sum(tapers * (obsd - timeshift_mat(synt*m0, t0, delta)) ** 2,
                   axis=None)
+
+
+def compute_new_syn_on_trwin(datalist, parlist, dcmt_par, dm):
+    """
+    Compute new synthetic data based on gradient(datalist, and dcmt_par)
+    and perturbation(dm). Be careful about dm here becuase dcmt_par has
+    been scaled.
+
+    :param datalist: dictionary of all data
+    :param dm: CMTSolution perterbation, i.e.,
+    (self.new_cmt_par-self.cmt_par)
+    :return:
+    """
+    # get a dummy copy to keep meta data information
+    datalist['new_synt'] = datalist['synt'].copy()
+
+    npar = len(parlist)
+    npts = datalist['synt'].stats.npts
+    dt = datalist['synt'].stats.delta
+    dsyn = np.zeros([npts, npar])
+
+    for i in range(npar):
+        if i < constant.NM:
+            dsyn[:, i] = datalist[parlist[i]].data / dcmt_par[i]
+        elif i < constant.NML:
+            dsyn[:, i] = (datalist[parlist[i]].data
+                          - datalist['synt'].data) / dcmt_par[i]
+        elif i == constant.NML:
+            dsyn[0:(npts - 1), i] = \
+                -(datalist['synt'].data[1:npts]
+                  - datalist[0:(npts - 1)]) / (dt * dcmt_par[i])
+            dsyn[npts - 1, i] = dsyn[npts - 2, i]
+        elif i == (constant.NML + 1):
+            # not implement yet....
+            raise ValueError("For npar == 10 or 11, not implemented yet")
+
+    datalist['new_synt'].data = \
+        datalist['synt'].data + np.dot(dsyn, dm[:npar])
