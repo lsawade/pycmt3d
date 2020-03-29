@@ -79,15 +79,15 @@ class CMTSource(object):
 
         with open(filename, "rt") as f:
             line = f.readline()
-            origin_time = line[4:].strip().split()[:6]
+            origin_time = line[5:].strip().split()[:6]
             values = list(map(int, origin_time[:-1])) + \
-                [float(origin_time[-1])]
+                     [float(origin_time[-1])]
             try:
-                origin_time = obspy.UTCDateTime(*values)
+                origin_time = UTCDateTime(*values)
             except (TypeError, ValueError):
                 warnings.warn("Could not determine origin time from line: %s"
                               % line)
-                origin_time = obspy.UTCDateTime(0)
+                origin_time = UTCDateTime(0)
             otherinfo = line[4:].strip().split()[6:]
             pde_lat = float(otherinfo[0])
             pde_lon = float(otherinfo[1])

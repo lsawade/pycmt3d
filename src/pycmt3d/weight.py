@@ -130,6 +130,7 @@ class Weight(object):
                 cat = "all"
             if cat not in pbins:
                 pbins[cat] = []
+
             pbins[cat].append(
                 SpherePoint(trwin.latitude, trwin.longitude, tag=idx))
 

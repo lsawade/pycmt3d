@@ -41,6 +41,9 @@ def test_from_CMTSOLUTION_file(cmt):
                   latitude=34.1745, longitude=-118.4792, depth_in_m=5400.0,
                   m_rr=1.0e22, m_tt=-1.0e22)
 
+    print("CMT:", cmt)
+    print("CMT_TRUE:", cmt_true)
+
     assert cmt == cmt_true
 
 
