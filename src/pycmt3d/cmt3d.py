@@ -385,8 +385,12 @@ class Cmt3D(object):
             if np.any(np.abs(meta.prov["synt"]["tshift"]) > 18.0) \
                     or np.any(meta.prov["synt"]["cc"] < 0.85):
                 logger.warning("Trace Window: %s" % trwin.obsd_id)
-                logger.warning("tshifts: %f" % meta.prov["synt"]["tshift"])
-                logger.warning("cc: %f" % meta.prov["synt"]["cc"])
+                logger.warning("tshifts: %f"
+                               % np.array_str(meta.prov["synt"]["tshift"],
+                                              max_line_width=np.inf))
+                logger.warning("cc: %f"
+                               % np.array_str(meta.prov["synt"]["cc"],
+                                              max_line_width=np.inf))
 
             new_synt = trwin.datalist['new_synt']
             # calculate new variance metrics
