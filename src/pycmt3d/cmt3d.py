@@ -196,16 +196,22 @@ class Cmt3D(object):
         Aes = []
         bes = []
 
-        for idx, _meta in enumerate(self.metas):
+        for idx, (_meta, _trwin) in enumerate(
+                zip(self.metas, self.data_container.trwins)):
             if self.config.weight_config.normalize_by_energy:
                 wav_weight = _meta.weights / _meta.prov["wav_energy"]
                 env_weight = _meta.weights / _meta.prov["env_energy"]
+
+                # Just logging things
+                logger.debug("Trace Window: %s -- File: %s"
+                             % (_trwin.obsd_id, _trwin.source_file))
                 logger.debug("Wave energy: %f -- Envelope energy: %f"
-                             % (_meta.prov["wav_energy"],
-                                _meta.prov["env_energy"]))
+                             % (np.array_str(_meta.prov["wav_energy"]),
+                                np.array_str(_meta.prov["env_energy"])))
                 logger.debug("Wave weight: %f -- Envelope weight: %f"
-                             % (wav_weight,
-                                env_weight))
+                             % (np.array_str(wav_weight),
+                                np.array_str(env_weight)))
+
                 Aws.append(sum_matrix(_meta.Aws, coef=wav_weight))
                 bws.append(sum_matrix(_meta.bws, coef=wav_weight))
                 Aes.append(sum_matrix(_meta.Aes, coef=env_weight))
