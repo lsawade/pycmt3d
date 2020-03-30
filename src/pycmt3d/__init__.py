@@ -5,8 +5,12 @@ class CustomFormatter(logging.Formatter):
     """Logging Formatter to add colors and count warning / errors"""
 
     # Setting up the different ANSI color escape sequences for color terminals:
+    # Codes are 3/4-bit codes from here:
+    # https://en.wikipedia.org/wiki/ANSI_escape_code
+    # For 8-colors: use "\x1b[38;5;<n>m" where <n> is the number of the color.
+    # See lightblue
     grey = "\x1b[38;21m"
-    lightblue = "\x1b[38;21m"
+    lightblue = "\x1b[38;5;81m"
     yellow = "\x1b[33;21m"
     red = "\x1b[31;21m"
     bold_red = "\x1b[31;1m"
