@@ -290,7 +290,8 @@ def load_winfile_json(flexwin_file, initial_weight=1.0):
                 path_dict = {"obsd": channel_id, "synt": channel_id}
                 trace_obj = TraceWindow(windows=win_time,
                                         init_weight=win_weight,
-                                        path_dict=path_dict)
+                                        path_dict=path_dict,
+                                        tags=os.path.basename(flexwin_file).split(".")[1])
                 trwins.append(trace_obj)
     return trwins
 
@@ -502,6 +503,7 @@ class DataContainer(Sequence):
         trwins = self.load_winfile(flexwinfile,
                                    initial_weight=initial_weight,
                                    file_format=file_format)
+
         self.trwins += trwins
 
         # load in the asdf data
