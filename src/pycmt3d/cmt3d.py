@@ -205,10 +205,10 @@ class Cmt3D(object):
                 # Just logging things
                 logger.debug("Trace Window: %s -- File: %s"
                              % (_trwin.obsd_id, _trwin.source_file))
-                logger.debug("Wave energy: %f -- Envelope energy: %f"
+                logger.debug("Wave energy: %s -- Envelope energy: %s"
                              % (np.array_str(_meta.prov["wav_energy"]),
                                 np.array_str(_meta.prov["env_energy"])))
-                logger.debug("Wave weight: %f -- Envelope weight: %f"
+                logger.debug("Wave weight: %s -- Envelope weight: %s"
                              % (np.array_str(wav_weight),
                                 np.array_str(env_weight)))
 
