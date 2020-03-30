@@ -4,20 +4,45 @@ import logging
 class CustomFormatter(logging.Formatter):
     """Logging Formatter to add colors and count warning / errors"""
 
+    # Setting up the different ANSI color escape sequences for color terminals:
     grey = "\x1b[38;21m"
+    lightblue = "\x1b[38;21m"
     yellow = "\x1b[33;21m"
     red = "\x1b[31;21m"
     bold_red = "\x1b[31;1m"
     reset = "\x1b[0m"
-    format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
 
+    # Formats The spaces accommodate the different length of the words and
+    # amount of detail wanted in the message:
+    format_inf = "[%(asctime)s] %(name)s | %(levelname)s     | %(message)s"
+    format_war = "[%(asctime)s] %(name)s | %(levelname)s  | %(message)s"
+    format_dbg = "[%(asctime)s] %(name)s | %(levelname)s    | %(message)s (%(filename)s:%(lineno)d)"
+    format_err = "[%(asctime)s] %(name)s | %(levelname)s    | %(message)s (%(filename)s:%(lineno)d)"
+    format_cri = "[%(asctime)s] %(name)s | %(levelname)s | %(message)s (%(filename)s:%(lineno)d)"
+
+    # Create format dictionary
     FORMATS = {
-        logging.DEBUG: grey + format + reset,
-        logging.INFO: grey + format + reset,
-        logging.WARNING: yellow + format + reset,
-        logging.ERROR: red + format + reset,
-        logging.CRITICAL: bold_red + format + reset
+        logging.INFO: format_inf,
+        logging.DEBUG: format_dbg,
+        logging.WARNING: yellow + format_war + reset,
+        logging.ERROR: red + format_err + reset,
+        logging.CRITICAL: bold_red + format_cri + reset
     }
+
+    # Initialize with a default logging.Formatter
+    def __init__(self):
+        super().__init__(fmt="%(levelno)d: %(msg)s", datefmt=None, style='%')
+
+    def format(self, record):
+
+        # Use the logging.LEVEL to get the right formatting
+        log_fmt = self.FORMATS.get(record.levelno)
+
+        # Create new formatter with modified timestamp formatting.
+        formatter = logging.Formatter(log_fmt, "%Y-%m-%d %H:%M:%S")
+
+        # Return
+        return formatter.format(record)
 
 # setup the logger
 logger = logging.getLogger("pycmt3d")
@@ -25,12 +50,7 @@ logger.setLevel(logging.DEBUG)
 logger.propagate = 0
 
 ch = logging.StreamHandler()
-# Add formatter
-# FORMAT = "%(name)s - %(levelname)s: %(message)s"
-# formatter = logging.Formatter(FORMAT)
-
-#Add custom formatter for color in the terminal
-ch.setFormatter(ch.setFormatter(CustomFormatter()))
+ch.setFormatter(CustomFormatter())
 logger.addHandler(ch)
 
 from .source import CMTSource  # NOQA

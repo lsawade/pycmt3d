@@ -14,7 +14,6 @@ from __future__ import (print_function, division, absolute_import)
 import numpy as np
 from . import logger
 from .util import get_cmt_par
-import logging
 
 
 def inversion_result_table(npar, cmtsource, new_cmtsource,
