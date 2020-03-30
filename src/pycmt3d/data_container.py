@@ -121,6 +121,7 @@ class TraceWindow(object):
         # Provenance information
         self.tags = tags
         self.source = source
+
         # sac file path
         self.path_dict = path_dict
 

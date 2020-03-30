@@ -100,8 +100,6 @@ class DefaultWeightConfig(WeightConfigBase):
 class Config(object):
     """
     Configuration for source inversion
-
-
     """
 
     def __init__(self, npar, dlocation=0.0, ddepth=0.0, dmoment=0.0,

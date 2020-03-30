@@ -15,7 +15,7 @@ from scipy.signal import hilbert
 from .util import construct_taper, check_trace_consistent, get_window_idx
 from . import constant
 from .util import timeshift_mat
-
+from . import logger
 
 def _envelope(array):
     return np.abs(hilbert(array))
@@ -405,6 +405,7 @@ def calculate_variance_on_trace(obsd, synt, win_time, taper_type="tukey"):
     energy [v1, d1]
     :rtype: [float, float]
     """
+
     dt = synt.stats.delta
     win_time = np.array(win_time)
     num_wins = win_time.shape[0]
