@@ -83,7 +83,7 @@ class TraceWindow(object):
 
     def __init__(self, datalist=None, windows=None, init_weight=None,
                  longitude=None, latitude=None,
-                 tags=None, source=None,
+                 tags=None, source=None, source_file=None,
                  path_dict=None):
         """
         :param datalist: the datalist keeping all the traces
@@ -124,6 +124,9 @@ class TraceWindow(object):
 
         # sac file path
         self.path_dict = path_dict
+
+        # Source file
+        self.source_file = source_file
 
         self._sanity_check()
 
@@ -256,7 +259,8 @@ def load_winfile_txt(flexwin_file, initial_weight=1.0):
                     win_weight[iwin] = initial_weight
             trace_obj = TraceWindow(windows=win_time,
                                     init_weight=win_weight,
-                                    path_dict=path_dict)
+                                    path_dict=path_dict,
+                                    source_file=flexwin_file)
             trwins.append(trace_obj)
     return trwins
 
@@ -291,7 +295,7 @@ def load_winfile_json(flexwin_file, initial_weight=1.0):
                 trace_obj = TraceWindow(windows=win_time,
                                         init_weight=win_weight,
                                         path_dict=path_dict,
-                                        tags=os.path.basename(flexwin_file).split(".")[1])
+                                        source_file=flexwin_file)
                 trwins.append(trace_obj)
     return trwins
 
