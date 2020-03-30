@@ -10,7 +10,7 @@ class CustomFormatter(logging.Formatter):
     # For 8-colors: use "\x1b[38;5;<n>m" where <n> is the number of the color.
     # See lightblue
     grey = "\x1b[38;21m"
-    lightblue = "\x1b[38;5;81m"
+    cyan = "\x1b[38;5;81m"  # "\x1b[96;21m"
     yellow = "\x1b[33;21m"
     red = "\x1b[31;21m"
     bold_red = "\x1b[31;1m"
@@ -27,7 +27,7 @@ class CustomFormatter(logging.Formatter):
     # Create format dictionary
     FORMATS = {
         logging.INFO: format_inf,
-        logging.DEBUG: format_dbg,
+        logging.DEBUG: cyan + format_dbg + reset,
         logging.WARNING: yellow + format_war + reset,
         logging.ERROR: red + format_err + reset,
         logging.CRITICAL: bold_red + format_cri + reset
