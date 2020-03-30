@@ -200,6 +200,12 @@ class Cmt3D(object):
             if self.config.weight_config.normalize_by_energy:
                 wav_weight = _meta.weights / _meta.prov["wav_energy"]
                 env_weight = _meta.weights / _meta.prov["env_energy"]
+                logger.debug("Wave energy: %f -- Envelope energy: %f"
+                             % (_meta.prov["wav_energy"],
+                                _meta.prov["env_energy"]))
+                logger.debug("Wave weight: %f -- Envelope weight: %f"
+                             % (wav_weight,
+                                env_weight))
                 Aws.append(sum_matrix(_meta.Aws, coef=wav_weight))
                 bws.append(sum_matrix(_meta.bws, coef=wav_weight))
                 Aes.append(sum_matrix(_meta.Aes, coef=env_weight))
@@ -384,12 +390,12 @@ class Cmt3D(object):
 
             if np.any(np.abs(meta.prov["synt"]["tshift"]) > 18.0) \
                     or np.any(meta.prov["synt"]["cc"] < 0.85):
-                logger.warning("Trace Window: %s -- File: %s"
+                logger.debug("Trace Window: %s -- File: %s"
                                % (trwin.obsd_id, trwin.source_file))
-                logger.warning("tshifts: %s"
+                logger.debug("tshifts: %s"
                                % np.array_str(meta.prov["synt"]["tshift"],
                                               max_line_width=np.inf))
-                logger.warning("cc: %s"
+                logger.debug("cc: %s"
                                % np.array_str(meta.prov["synt"]["cc"],
                                               max_line_width=np.inf))
 

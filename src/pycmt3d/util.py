@@ -98,6 +98,7 @@ def get_window_idx(win_time, dt):
 
     win_time = np.array(win_time)
     win_idx = np.zeros(win_time.shape)
+
     if len(win_time.shape) < 1:
         raise ValueError("lenght of window is %d" % (len(win_time)))
     elif len(win_time.shape) == 1:
@@ -105,6 +106,7 @@ def get_window_idx(win_time, dt):
     else:
         for _i, _win in enumerate(win_time):
             win_idx[_i] = _get_win_idx(_win, dt)
+
     return win_idx
 
 
@@ -206,6 +208,7 @@ def tukey_window(window_length, alpha=0.2):
     Reference
     ---------
     http://www.mathworks.com/access/helpdesk/help/toolbox/signal/tukeywin.html
+
     """
     # Special cases
     if alpha <= 0:
