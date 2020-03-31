@@ -274,18 +274,39 @@ class Cmt3D(object):
         Aw_all, bw_all, Ae_all, be_all, A_all, b_all = \
             self._ensemble_measurements(Aws, bws, Aes, bes)
 
+        logger.info(" ")
         logger.info("Inversion Matrix Aw(with scaled cmt perturbation) is "
                     "as follows:")
-        logger.info("\n%s" % ('\n'.join(map(_float_array_to_str, Aw_all))))
-        logger.info("bw_all: [%s]" % (_float_array_to_str(bw_all)))
+        logger.info(" ")
+        for line in Aw_all:
+            logger.info(np.array_str(line, max_line_width=np.inf))
+        logger.info(" ")
+        # logger.info("\n%s" % ('\n'.join(map(_float_array_to_str, Aw_all))))
+        # logger.info("bw_all: [%s]" % (_float_array_to_str(bw_all)))
+        logger.info("bw_all: %s" % (np.array_str(bw_all,
+                                                 max_line_width=np.inf)))
+        logger.info(" ")
         logger.info("Inversion Matrix Ae(with scaled cmt perturbation) is "
                     "as follows:")
-        logger.info("\n%s" % ('\n'.join(map(_float_array_to_str, Ae_all))))
-        logger.info("be_all: [%s]" % (_float_array_to_str(be_all)))
+        logger.info(" ")
+        # logger.info("\n%s" % ('\n'.join(map(_float_array_to_str, Ae_all))))
+        # logger.info("be_all: [%s]" % (_float_array_to_str(be_all)))
+        for line in Ae_all:
+            logger.info(np.array_str(line, max_line_width=np.inf))
+        logger.info(" ")
+        logger.info("be_all: %s" % (np.array_str(be_all,
+                                                 max_line_width=np.inf)))
+        logger.info(" ")
         logger.info("Inversion Matrix A(with scaled cmt perturbation) is "
                     "as follows:")
-        logger.info("\n%s" % ('\n'.join(map(_float_array_to_str, A_all))))
-        logger.info("b_all: [%s]" % (_float_array_to_str(b_all)))
+        logger.info(" ")
+        for line in A_all:
+            logger.info(np.array_str(line, max_line_width=np.inf))
+        logger.info(" ")
+        # logger.info("\n%s" % ('\n'.join(map(_float_array_to_str, A_all))))
+        # logger.info("b_all: [%s]" % (_float_array_to_str(b_all)))
+        logger.info("b_all: %s" % (np.array_str(b_all,
+                                                max_line_width=np.inf)))
         logger.info("Condition number of A: %10.2f" % (np.linalg.cond(A_all)))
         logger.info("RHS vector b(with scaled cmt perturbation) is "
                     "as follows:")

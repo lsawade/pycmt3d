@@ -15,7 +15,6 @@ from scipy.signal import hilbert
 from .util import construct_taper, check_trace_consistent, get_window_idx
 from . import constant
 from .util import timeshift_mat
-from . import logger
 
 def _envelope(array):
     return np.abs(hilbert(array))
