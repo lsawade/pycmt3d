@@ -6,22 +6,29 @@ class CustomFormatter(logging.Formatter):
     Logging Formatter to add colors and count warning / errors
 
     This class organizes the customization of the logging output.
-    The formatter as of now outputs the logs in the follwoing manner in
+    The formatter as of now outputs the logs in the following manner in
     order of Loglevel:
 
     .. code-block:: python
 
-        [2020-03-30 21:00:17] matpy -- [  DEBUG   ] Test Verbose Level (matrixmultiplication.py:53)
-        [2020-03-30 21:00:17] matpy -- [ VERBOSE  ] Test Verbose Level
-        [2020-03-30 21:00:17] matpy -- [  INFO    ] Initializing matrices...
-        [2020-03-30 21:00:17] matpy -- [ WARNING  ] Matrix size exceeds 4 elements.
-        [2020-03-30 21:00:17] matpy -- [  ERROR   ] Test Error Level (matrixmultiplication.py:54)
-        [2020-03-30 21:00:17] matpy -- [ CRITICAL ] Test Critical Level (matrixmultiplication.py:55)
+        [2020-03-30 21:00:17] matpy -- [  DEBUG   ] \
+                        Test Verbose Level (matrixmultiplication.py:53)
+        [2020-03-30 21:00:17] matpy -- [ VERBOSE  ] \
+                        Test Verbose Level
+        [2020-03-30 21:00:17] matpy -- [  INFO    ] \
+                        Initializing matrices...
+        [2020-03-30 21:00:17] matpy -- [ WARNING  ] \
+                        Matrix size exceeds 4 elements.
+        [2020-03-30 21:00:17] matpy -- [  ERROR   ] \
+                        Test Error Level (matrixmultiplication.py:54)
+        [2020-03-30 21:00:17] matpy -- [ CRITICAL ] \
+                        Test Critical Level (matrixmultiplication.py:55)
 
 
     These outputs are colored in the actual output but the formatting is just
     as shown above. VERBOSE is an extra added LogLevel formatting. More can be
-    added below the comment `EXTRA LEVELS` in the same way the VERBOSE is added.
+    added below the comment `EXTRA LEVELS` in the same way the VERBOSE
+    is added.
 
     The variable VERBOSE is given at the top of the module. That way it can be
     changed for all depending function
@@ -46,19 +53,19 @@ class CustomFormatter(logging.Formatter):
     # Formats The spaces accommodate the different length of the words and
     # amount of detail wanted in the message:
     time_fmt = light_grey + "[%(asctime)s]" + reset
-    name_fmt = "%(name)s --"
-    level_fmt = "[" + grey + "%(levelname)s" + reset + "]"
-    pre_fmt = time_fmt + " " + name_fmt + " "
+    name_fmt = "-- %(name)s -"
+    pre_fmt = time_fmt + " " + name_fmt
 
-    debug_fmt = "[" + light_blue + "  %(levelname)s   " + reset + "]" \
-        + light_blue + " %(message)s (%(filename)s:%(lineno)d)" + reset
-    info_fmt = "[  %(levelname)s    ] %(message)s"
-    warning_fmt = "[" + yellow + " %(levelname)s  " + reset + "]" \
-                 + yellow + " %(message)s" + reset
-    error_fmt = "[" + red + "  %(levelname)s   " + reset + "]" \
-        + red + " %(message)s (%(filename)s:%(lineno)d)" + reset
-    critical_fmt = "[" + bold_red + " %(levelname)s " + reset + "]" \
-        + bold_red + " %(message)s (%(filename)s:%(lineno)d)" + reset
+    debug_fmt = "--- [" + light_blue + "%(levelname)s" + reset + "]:" \
+                + light_blue + " %(message)s (%(filename)s:%(lineno)d)" + reset
+    info_fmt = "---- [%(levelname)s]: %(message)s"
+    warning_fmt = "- [" + yellow + "%(levelname)s" + reset + "]:" \
+                  + yellow + " %(message)s" + reset
+    error_fmt = "--- [" + red + "%(levelname)s" + reset + "]:" \
+                + red + " %(message)s (%(filename)s:%(lineno)d)" + reset
+    critical_fmt = " [" + bold_red + "%(levelname)s" + reset + "]:" \
+                   + bold_red + " %(message)s (%(filename)s:%(lineno)d)" \
+                   + reset
 
     # Create format dictionary
     FORMATS = {
