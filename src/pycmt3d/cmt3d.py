@@ -458,7 +458,9 @@ class Cmt3D(object):
         Print the inversion summary in the logger
         """
         logger.info("===== CMT Source Information =====")
-        logger.info("\n%s" % self.cmtsource)
+        for line in self.cmtsource.__str__.splitlines():
+            logger.info(line)
+        logger.info(" ")
 
     def plot_summary(self, outputdir=".", figure_format="png",
                      mode="global"):
