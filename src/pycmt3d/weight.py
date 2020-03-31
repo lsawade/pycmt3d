@@ -31,6 +31,8 @@ def calculate_energy_weighting(trwin, mode="window"):
             average_energy * (win_idx[:, 1] - win_idx[:, 0]) * dt
     elif mode == "window":
         for idx, _win in enumerate(win_idx):
+            logger.debug(("Window %d: " % idx)
+                         + np.array_str(_win, max_line_width=np.inf))
             wav_energy[idx] = \
                 _energy_(obsd.data[_win[0]:_win[1]]) * dt
             env_energy[idx] = \
