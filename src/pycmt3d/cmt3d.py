@@ -458,7 +458,7 @@ class Cmt3D(object):
         Print the inversion summary in the logger
         """
         logger.info("===== CMT Source Information =====")
-        for line in self.cmtsource.__str__().splitlines()l:
+        for line in self.cmtsource.__str__().splitlines():
             logger.info(line)
         logger.info(" ")
 
