@@ -412,19 +412,6 @@ class Cmt3D(object):
                 calculate_variance_on_trace(obsd, synt, trwin.windows,
                                             self.config.taper_type)
 
-            if np.any(np.abs(meta.prov["synt"]["tshift"]) > 18.0) \
-                    or np.any(meta.prov["synt"]["cc"] < 0.85):
-                logger.debug("Trace: %s -- File: %s"
-                             % (trwin.obsd_id, trwin.source_file))
-                for idx, _win in enumerate(trwin.windows):
-                    logger.debug("Window %d: %s" % (idx, _win))
-                logger.debug("tshifts: %s"
-                               % np.array_str(meta.prov["synt"]["tshift"],
-                                              max_line_width=np.inf))
-                logger.debug("cc: %s"
-                               % np.array_str(meta.prov["synt"]["cc"],
-                                              max_line_width=np.inf))
-
             new_synt = trwin.datalist['new_synt']
             # calculate new variance metrics
             meta.prov["new_synt"] = \

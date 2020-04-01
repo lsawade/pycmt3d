@@ -23,10 +23,10 @@ def calculate_energy_weighting(trwin, mode="window"):
     env_energy = np.zeros(trwin.nwindows)
 
     if mode == "all":
-        average_energy = _energy_(obsd.data) / obsd.stats.npts
+        average_energy = _energy_(obsd.data) #/ obsd.stats.npts
         wav_energy = \
             average_energy * (win_idx[:, 1] - win_idx[:, 0]) * dt
-        average_energy = _energy_(_envelope(obsd.data)) / obsd.stats.npts
+        average_energy = _energy_(_envelope(obsd.data)) #/ obsd.stats.npts
         env_energy = \
             average_energy * (win_idx[:, 1] - win_idx[:, 0]) * dt
     elif mode == "window":
@@ -42,7 +42,7 @@ def calculate_energy_weighting(trwin, mode="window"):
 
 def setup_energy_weight(metas, data_container):
     for meta, trwin in zip(metas, data_container):
-        we, ee = calculate_energy_weighting(trwin, mode="window")
+        we, ee = calculate_energy_weighting(trwin, mode="all")
         meta.prov['wav_energy'] = we
         meta.prov['env_energy'] = ee
 
