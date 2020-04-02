@@ -24,13 +24,11 @@ from .source import CMTSource
 from .grid3d import Grid3d
 from .grid3d import Grid3dConfig
 from . import gradient3d
-from . import gradient3d_mpi
 from .data_container import DataContainer
 from .plot_util import PlotInvSummary
 from .plot_util import plot_seismograms
-import matplotlib.pyplot as plt
 from .util import dump_json
-plt.switch_backend("agg")
+from . import gradient3d_mpi
 
 
 class Inversion(object):

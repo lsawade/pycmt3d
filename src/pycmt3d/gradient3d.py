@@ -11,13 +11,9 @@ the scalar moment and timeshift.
     (http://www.gnu.org/licenses/lgpl-3.0.en.html)
 """
 from __future__ import print_function, division, absolute_import
+import sys
 import numpy as np
-import matplotlib.pyplot as plt
 from copy import deepcopy
-
-import psutil
-from joblib import delayed
-from joblib import Parallel
 
 # Internal imports
 from .source import CMTSource
@@ -26,13 +22,14 @@ from .data_container import MetaInfo
 from . import logger
 from .weight import Weight, setup_energy_weight
 from .measure import calculate_variance_on_trace
-# from .plot_util import PlotStats
 from .util import timeshift_mat
 from .util import get_window_idx
 from .util import construct_taper
 import time
 
-plt.switch_backend("agg")
+import psutil
+from joblib import delayed
+from joblib import Parallel
 
 
 def check_wolfe(alpha, fcost, fcost_new, q, qnew, c1=1e-4, c2=0.9,
@@ -276,6 +273,14 @@ class Gradient3d(object):
         self.tapers = None
         self.windows = None
 
+        # Space holders
+        self.bootstrap_mean = np.array([np.nan])
+        self.bootstrap_std = np.array([np.nan])
+        self.maxcost_array = np.array([np.nan])
+        self.mincost_array = np.array([np.nan])
+        self.stdcost_array = np.array([np.nan])
+        self.meancost_array = np.array([np.nan])
+
         # Prepare Matrices (otherwise it's going to be hard
         # to compute the residual)
         self.setup_window_weight()
@@ -362,7 +367,11 @@ class Gradient3d(object):
         maxlen = 0
 
         timer0 = time.time()
-        self.num_cores = psutil.cpu_count(logical=False)
+        if "pytest" in sys.modules:
+            self.num_cores = 1
+        else:
+            self.num_cores = psutil.cpu_count(logical=False)
+
         logger.info("Number of cores: %d" % self.num_cores)
         logger.info("Bootstrap - Looping ....")
 
@@ -606,42 +615,43 @@ class Gradient3d(object):
             # correct the starting time of new_synt)
             meta.prov["new_synt"]["tshift"] -= self.t00_best
 
-    def plot_cost(self, figurename=None):
-
-        if figurename is None:
-            ax = plt.gca()
-
-        else:
-            plt.figure()
-            ax = plt.axes()
-
-        if self.config.bootstrap:
-            x = np.arange(0, self.cost_array.shape[1], 1)
-            ax.fill_between(x, self.mincost_array, self.maxcost_array,
-                            color='lightgray', label="min/max")
-            ax.fill_between(x, self.meancost_array - self.stdcost_array,
-                            self.meancost_array + self.stdcost_array,
-                            color='darkgray', label=r"$\bar{\chi}\pm\sigma$")
-            ax.plot(self.meancost_array, 'k', label=r"$\bar{\chi}$")
-
-        if self.config.method == "gn":
-            label = "Gauss-Newton"
-        else:
-            label = "Newton"
-
-        ax.plot(self.chi_list, "r",
-                label=r"%s ($\mathcal{C}_{min} = %.3f$)"
-                % (label, self.chi_list[-1]))
-        plt.legend(prop={'size': 6}, fancybox=False, framealpha=1)
-        ax.set_xlabel("Iteration #")
-        ax.set_ylabel("Misfit reduction")
-
-        if figurename is None:
-            pass
-        elif figurename == 'show':
-            plt.show()
-        else:
-            plt.savefig(figurename)
+    # def plot_cost(self, figurename=None):
+    #
+    #     if figurename is None:
+    #         ax = plt.gca()
+    #
+    #     else:
+    #         plt.figure()
+    #         ax = plt.axes()
+    #
+    #     if self.config.bootstrap:
+    #         x = np.arange(0, self.cost_array.shape[1], 1)
+    #         ax.fill_between(x, self.mincost_array, self.maxcost_array,
+    #                         color='lightgray', label="min/max")
+    #         ax.fill_between(x, self.meancost_array - self.stdcost_array,
+    #                         self.meancost_array + self.stdcost_array,
+    #                         color='darkgray', label=r"$\bar{\chi}\pm\sigma$")
+    #         ax.plot(self.meancost_array, 'k', label=r"$\bar{\chi}$")
+    #
+    #     if self.config.method == "gn":
+    #         label = "Gauss-Newton"
+    #     else:
+    #         label = "Newton"
+    #
+    #     ax.plot(self.chi_list, "r",
+    #             label=r"%s ($\mathcal{C}_{min} = %.3f$)"
+    #             % (label, self.chi_list[-1]))
+    #     plt.legend(prop={'size': 6}, fancybox=False, framealpha=1)
+    #     ax.set_xlabel("Iteration #")
+    #     ax.set_ylabel("Misfit reduction")
+    #
+    #     if figurename is None:
+    #         pass
+    #     elif figurename == 'show':
+    #         plt.show()
+    #     else:
+    #         plt.savefig(figurename)
+    #         plt.close()
 
 
 class Gradient(object):

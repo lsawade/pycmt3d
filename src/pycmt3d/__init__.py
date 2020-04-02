@@ -1,6 +1,7 @@
 from __future__ import (absolute_import, print_function, division)
 import logging
 
+
 class CustomFormatter(logging.Formatter):
     """
     Logging Formatter to add colors and count warning / errors

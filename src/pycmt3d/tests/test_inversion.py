@@ -154,7 +154,7 @@ def test_inversion_grad(cmtsource, tmpdir):
                                      nt=10, nls=20,
                                      crit=0.01,
                                      precond=False, reg=False,
-                                     bootstrap=True, bootstrap_repeat=20,
+                                     bootstrap=False, bootstrap_repeat=20,
                                      bootstrap_subset_ratio=0.4)
 
     inv = Inversion(cmtsource, dcon_two, cmt3d_config, grad3d_config)
@@ -211,7 +211,7 @@ if __name__ == "__main__":
                                      nt=10, nls=20,
                                      crit=0.01,
                                      precond=False, reg=False,
-                                     bootstrap=True, bootstrap_repeat=20,
+                                     bootstrap=False, bootstrap_repeat=20,
                                      bootstrap_subset_ratio=0.4)
     inv = Inversion(cmt, dcon, cmt3d_config, grad3d_config)
     inv.source_inversion()

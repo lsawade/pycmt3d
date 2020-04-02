@@ -740,8 +740,11 @@ class DataContainer(Sequence):
             stream = getattr(st, tag)
 
         # Get component! Fix for update in pyflex
+
+        """Fix selection here!!!"""
+
         comp = channel[-1]
-        tr = stream.select(network=network, station=station,
+        tr = stream.select(network=network, station=station,  # location=loc,
                            component=comp)[0]
 
         return tr.copy(), tag

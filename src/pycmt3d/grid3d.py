@@ -14,13 +14,9 @@ from __future__ import print_function, division, absolute_import
 import os
 import sys
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from copy import deepcopy
-
-import psutil
-from joblib import delayed
-from joblib import Parallel
-
 from . import logger
 from .weight import Weight
 from .data_container import MetaInfo
@@ -31,6 +27,11 @@ from .measure import construct_matrices, compute_misfit
 from .util import timeshift_trace
 from .util import random_select
 import time
+import psutil
+from joblib import delayed
+from joblib import Parallel
+
+matplotlib.use('agg')
 
 
 def del_line(n=1):
@@ -476,8 +477,10 @@ class Grid3d(object):
         logger.info("Looping ....")
         logger.info("Number of iterations: %d" % N)
         counter = 0
-
-        num_cores = psutil.cpu_count(logical=False)
+        if "pytest" in sys.modules:
+            num_cores = 1
+        else:
+            num_cores = psutil.cpu_count(logical=False)
 
         logger.info("Number of cores: %d" % num_cores)
         if num_cores == 1:
@@ -497,8 +500,7 @@ class Grid3d(object):
             shape = tt.shape
 
             results = \
-                Parallel(n_jobs=num_cores,
-                         backend='multiprocessing')(
+                Parallel(n_jobs=num_cores)(
                     delayed
                     (compute_misfit)(obsd, synt, tapers,
                                      mm0, tt0, delta, _i+1, N)
@@ -640,8 +642,7 @@ class Grid3d(object):
                 tt, mm = np.meshgrid(self.t00_array, self.m00_array)
                 shape = tt.shape
 
-                results = Parallel(n_jobs=num_cores,
-                                   backend='multiprocessing')(
+                results = Parallel(n_jobs=num_cores)(
                     delayed(self.calculate_misfit_on_subset)(
                         tt0, mm0, random_array, weights) for (tt0, mm0) in
                     zip(tt.flatten(), mm.flatten()))
@@ -825,6 +826,7 @@ class Grid3d(object):
         plt.grid()
         plt.legend(numpoints=1)
         plt.savefig(figname)
+        plt.close()
 
     def plot_energy_misfit_summary(self, figname):
         """
@@ -862,6 +864,7 @@ class Grid3d(object):
         plt.legend(numpoints=1)
         plt.tight_layout()
         plt.savefig(figname)
+        plt.close()
 
     def plot_grid(self, figurename=None):
 
@@ -896,6 +899,7 @@ class Grid3d(object):
             plt.show()
         else:
             plt.savefig(figurename)
+            plt.close()
 
     def plot_cost(self, figurename=None):
 
@@ -917,3 +921,4 @@ class Grid3d(object):
             plt.show()
         else:
             plt.savefig(figurename)
+            plt.close()

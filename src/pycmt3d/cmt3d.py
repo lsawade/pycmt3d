@@ -15,7 +15,7 @@ import numpy as np
 from copy import deepcopy
 
 from . import logger
-from .util import random_select, sum_matrix, _float_array_to_str
+from .util import random_select, sum_matrix
 from .util import get_cmt_par, dump_json
 from .measure import compute_derivatives, calculate_variance_on_trace
 from .measure import compute_new_syn_on_trwin
@@ -419,8 +419,8 @@ class Cmt3D(object):
                                             self.config.taper_type)
 
             var_all += np.sum(0.5 * meta.prov["synt"]["chi"] * meta.weights)
-            var_all_new += np.sum(0.5 * meta.prov["new_synt"]["chi"] *
-                                  meta.weights)
+            var_all_new += np.sum(0.5 * meta.prov["new_synt"]["chi"]
+                                  * meta.weights)
 
         logger.info(
             "Total Variance Reduced from %e to %e ===== %f %%"

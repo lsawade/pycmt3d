@@ -109,8 +109,7 @@ class Config(object):
                  weight_data=True, weight_config=None,
                  bootstrap=True, bootstrap_repeat=300,
                  bootstrap_subset_ratio=0.4,
-                 taper_type="tukey",
-                 dtx=False, dM0=False):
+                 taper_type="tukey"):
         """
         :param npar: number of parameters to be inverted
         :param dlocation: location perturbation when calculated perturbed
@@ -173,8 +172,6 @@ class Config(object):
         self.station_correction = station_correction
         self.zero_trace = zero_trace
         self.double_couple = double_couple
-        self.dtx = dtx
-        self.dM0 = dM0
 
         if envelope_coef < 0.0 or envelope_coef > 1.0:
             raise ValueError("Envelope coefficient must be within [0, 1]")

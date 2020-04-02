@@ -77,11 +77,11 @@ class CMTSource(object):
         :param filename: path to the CMTSOLUTION file
         """
 
-        with open(filename, "rt") as f:
+        with open(filename, "r") as f:
             line = f.readline()
             origin_time = line[5:].strip().split()[:6]
-            values = list(map(int, origin_time[:-1])) + \
-                     [float(origin_time[-1])]
+            values = list(map(int, origin_time[:-1])) \
+                + [float(origin_time[-1])]
             try:
                 origin_time = UTCDateTime(*values)
             except (TypeError, ValueError):

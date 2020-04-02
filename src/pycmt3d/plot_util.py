@@ -15,8 +15,8 @@ import os
 from collections import defaultdict
 import math
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
-
 import matplotlib.gridspec as gridspec
 from matplotlib.patches import Rectangle
 from matplotlib.collections import LineCollection
@@ -37,13 +37,13 @@ from .source import CMTSource
 from .geo_data_util import GeoMap
 from .data_container import DataContainer, TraceWindow
 from .grid3d import Grid3d
-from .gradient3d_mpi import Gradient3d
+from .gradient3d import Gradient3d
 from . import logger
 from .util import get_cmt_par, get_trwin_tag
 from .util import load_json
 from .measure import _envelope
 
-plt.switch_backend("agg")
+matplotlib.use('agg')
 
 # earth half circle
 EARTH_HC, _, _ = gps2dist_azimuth(0, 0, 0, 180)
@@ -309,6 +309,7 @@ class PlotStats(object):
                 G, irow, cat, vtype_list, num_bins, vtype_dict)
         plt.tight_layout()
         plt.savefig(self.outputfn)
+        plt.close()
 
 
 class PlotInvSummary(object):
@@ -397,15 +398,21 @@ class PlotInvSummary(object):
                         setattr(self.G, att,
                                 np.array(getattr(self.G, att)))
             # Fix time
-            self.bootstrap_mean[9] = self.G.bootstrap_mean[1]
-            self.bootstrap_std[9] = self.G.bootstrap_std[1]
-            # Fix moment
-            self.bootstrap_mean = np.append(self.bootstrap_mean,
-                                            self.G.bootstrap_mean[0]
-                                            * self.cmtsource.M0)
-            self.bootstrap_std = np.append(self.bootstrap_std,
-                                           self.G.bootstrap_std[0]
-                                           * self.cmtsource.M0)
+            print(self.G.bootstrap_mean[0])
+            if not np.isnan(self.G.bootstrap_mean[0]):
+                self.bootstrap_mean[9] = self.G.bootstrap_mean[1]
+                self.bootstrap_std[9] = self.G.bootstrap_std[1]
+                # Fix moment
+                self.bootstrap_mean = np.append(self.bootstrap_mean,
+                                                self.G.bootstrap_mean[0]
+                                                * self.cmtsource.M0)
+                self.bootstrap_std = np.append(self.bootstrap_std,
+                                               self.G.bootstrap_std[0]
+                                               * self.cmtsource.M0)
+            else:
+                self.bootstrap_mean = np.append(self.bootstrap_mean, np.nan)
+                self.bootstrap_std = np.append(self.bootstrap_std, np.nan)
+
         elif type(G) == Grid3d:
 
             self.G = G
@@ -842,6 +849,7 @@ class PlotInvSummary(object):
             plt.show()
         else:
             plt.savefig(figurename)
+            plt.close()
 
     def plot_faults(self):
         fname = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -1090,11 +1098,11 @@ class PlotInvSummary(object):
         self.plot_table()
         fig.canvas.draw()
         plt.tight_layout()
-        # plt.savefig("/Users/lucassawade/test.pdf")
         if figurename is None:
             plt.show()
         else:
             plt.savefig(figurename)
+            plt.close('all')
 
 
 if __name__ == "__main__":
