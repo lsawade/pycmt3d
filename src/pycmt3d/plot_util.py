@@ -704,7 +704,8 @@ class PlotInvSummary(object):
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         text = "CMT:" + format2 % (
             self.cmtsource.time_shift, self.new_cmtsource.time_shift,
-            par_mean[9], par_std[9], par_std[9] / par_mean[9] * 100)
+            self.cmtsource.time_shift + par_mean[9],
+            par_std[9], 0.0)
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
 
