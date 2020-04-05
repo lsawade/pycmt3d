@@ -63,8 +63,7 @@ class Inversion(object):
         self.var_reduction = None
 
         # Statistics
-        self.metas_sort = None
-        self.key_map = None
+        self.stats = None
 
     def source_inversion(self):
         """Uses the different classes to both invert for the parameters and
@@ -110,6 +109,9 @@ class Inversion(object):
             self.G = None
             self.new_cmtsource = copy.deepcopy(self.cmt3d.new_cmtsource)
             self.var_reduction = self.cmt3d.var_reduction
+
+        # Extract stats to save to json
+        self.extract_stats()  # Creates self.stats [dict]
 
     def plot_new_synt_seismograms(self, outputdir, figure_format="pdf"):
         """
@@ -177,28 +179,74 @@ class Inversion(object):
             mode=mode, G=self.G)
         plot_util.plot_inversion_summary(figurename=figurename)
 
+    def extract_metadata(self, cat_name, meta_varname):
+        data_old = []
+        data_new = []
+        cat_data = self.metas_sort[cat_name]
+        for meta in cat_data:
+            data_old.extend(meta.prov["synt"][meta_varname])
+            data_new.extend(meta.prov["new_synt"][meta_varname])
+
+        return data_old, data_new
+
     def extract_stats(self):
         """This function uses the info save in the metas to compute
         the component means, stds, mins, and maxs."""
 
-        vtype_list = ['time shift', 'cc',
-                      'power_l1_ratio(dB)', 'power_l2_ratio(dB)',
-                      'CC amplitude ratio(dB)', 'chi']
-        num_bins = [15, 15, 15, 15, 15, 15]
-        vtype_dict = {'time shift': "tshift",
-                      'cc': "cc",
-                      "power_l1_ratio(dB)": "power_l1",
-                      "power_l2_ratio(dB)": "power_l2",
-                      "CC amplitude ratio(dB)": "cc_amp",
-                      "chi": "chi"}
-        print(vtype_dict, vtype_list, num_bins)
+        # Define list of statistics to get.
+        vtype_list = ["tshift", "cc", "power_l1", "power_l2", "cc_amp", "chi"]
+
+        # Sort the metadata into categories (040_100.obsd.BHZ is a category eg)
         self.sort_metas()
 
+        # Create empty dictionary for the statistics.
+        self.stats = dict()
+
+        # Get category names from the sorted meta dictionary
+        cat_names = sorted(self.metas_sort.keys())
+
+        # Loop over categories and compute statistics for the
+        for irow, cat in enumerate(cat_names):
+
+            self.stats[cat] = self.get_stats_one_cat(cat, vtype_list)
+
+    def get_stats_one_cat(self, cat_name, vtype_list):
+        cat_dict = dict()
+        for var_idx, varname in enumerate(vtype_list):
+
+            # Collect the raw data from new and old synthetics.
+            data_before, data_after = \
+                self.extract_metadata(cat_name, varname)
+
+            # Compute before/after dictionary for the the varname (cc eg.)
+            cat_dict[varname] = self.get_stats_one_entry(data_before,
+                                                         data_after)
+
+        return cat_dict
+
+    @staticmethod
+    def get_stats_one_entry(data_before, data_after):
+        # Stats
+        a_mean = np.mean(data_after)
+        a_std = np.std(data_after)
+        b_mean = np.mean(data_before)
+        b_std = np.std(data_before)
+
+        return {"before": {"mean": b_mean, "std": b_std},
+                "after": {"mean": a_mean, "std": a_std}}
+
     def sort_metas(self):
-        """ sort metas into different categories for future plotting """
+        """sort metas into different categories for future plotting """
         metas_sort = defaultdict(list)
         key_map = defaultdict(set)
-        for trwin, meta in zip(self.data_container, self.metas):
+
+        # Get the computed meta information.
+        if self.G == None:
+            metas = self.cmt3d.metas
+        else:
+            metas = self.G.metas
+
+        for trwin, meta in zip(self.data_container, metas):
             comp = trwin.channel
             cat_name = get_trwin_tag(trwin)
             key_map[comp].add(cat_name)
@@ -248,7 +296,7 @@ class Inversion(object):
 
         outdict["nregions"] = self.cmt3d_config.weight_config.azi_bins
 
-        outdict["stats"] = None
+        outdict["stats"] = self.stats
 
         if self.G is not None:
             outdict["var_reduction"] = self.G.var_reduction

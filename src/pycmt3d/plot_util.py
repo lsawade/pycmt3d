@@ -454,10 +454,7 @@ class PlotInvSummary(object):
     @classmethod
     def from_JSON(cls, filename):
 
-        print(os.path.abspath(filename))
         d = load_json(os.path.abspath(filename))
-        print(d)
-        print(d["sta_lon"])
         data_container = {"sta_lon": np.array(d["sta_lon"]),
                           "sta_lat": np.array(d["sta_lat"]),
                           "nwindows": d["nwindows"],
@@ -471,7 +468,7 @@ class PlotInvSummary(object):
         var_reduction = d["var_reduction"]
         mode = d["mode"]
         G = d["G"]
-        print(G)
+
         # final scaling and shift
         # misfit reduction
         # bootstrap misfit reduction min
