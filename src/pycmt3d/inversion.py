@@ -241,7 +241,7 @@ class Inversion(object):
         key_map = defaultdict(set)
 
         # Get the computed meta information.
-        if self.G == None:
+        if self.G is None:
             metas = self.cmt3d.metas
         else:
             metas = self.G.metas
