@@ -278,7 +278,6 @@ class Inversion(object):
 
         outdict["oldcmt"] = self.cmtsource.__dict__
         outdict["newcmt"] = self.new_cmtsource.__dict__
-        print(type([window.latitude for window in self.data_container.trwins]))
         outdict["sta_lat"] = np.array([window.latitude
                                        for window
                                        in self.data_container.trwins]).tolist()
