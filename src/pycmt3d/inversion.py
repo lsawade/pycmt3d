@@ -24,11 +24,13 @@ from .source import CMTSource
 from .grid3d import Grid3d
 from .grid3d import Grid3dConfig
 from . import gradient3d
+from . import gradient3d_mpi
 from .data_container import DataContainer
 from .plot_util import PlotInvSummary
 from .plot_util import plot_seismograms
 from .util import dump_json
-from . import gradient3d_mpi
+from .util import get_trwin_tag
+from collections import defaultdict
 
 
 class Inversion(object):
@@ -60,6 +62,10 @@ class Inversion(object):
         # Variance Reduction
         self.var_reduction = None
 
+        # Statistics
+        self.metas_sort = None
+        self.key_map = None
+
     def source_inversion(self):
         """Uses the different classes to both invert for the parameters and
         grid_search."""
@@ -69,8 +75,6 @@ class Inversion(object):
                            self.cmt3d_config)
         self.cmt3d.source_inversion()
         self.cmt3d.compute_new_syn()
-        # self.cmt3d.plot_new_synt_seismograms(
-        # "/home/lsawade/pycmt3d/seis/cmt3d")
 
         if type(self.mt_config) == Grid3dConfig:
             # Grid search for CMT shift and
@@ -173,6 +177,36 @@ class Inversion(object):
             mode=mode, G=self.G)
         plot_util.plot_inversion_summary(figurename=figurename)
 
+    def extract_stats(self):
+        """This function uses the info save in the metas to compute
+        the component means, stds, mins, and maxs."""
+
+        vtype_list = ['time shift', 'cc',
+                      'power_l1_ratio(dB)', 'power_l2_ratio(dB)',
+                      'CC amplitude ratio(dB)', 'chi']
+        num_bins = [15, 15, 15, 15, 15, 15]
+        vtype_dict = {'time shift': "tshift",
+                      'cc': "cc",
+                      "power_l1_ratio(dB)": "power_l1",
+                      "power_l2_ratio(dB)": "power_l2",
+                      "CC amplitude ratio(dB)": "cc_amp",
+                      "chi": "chi"}
+        print(vtype_dict, vtype_list, num_bins)
+        self.sort_metas()
+
+    def sort_metas(self):
+        """ sort metas into different categories for future plotting """
+        metas_sort = defaultdict(list)
+        key_map = defaultdict(set)
+        for trwin, meta in zip(self.data_container, self.metas):
+            comp = trwin.channel
+            cat_name = get_trwin_tag(trwin)
+            key_map[comp].add(cat_name)
+            metas_sort[cat_name].append(meta)
+
+        self.metas_sort = metas_sort
+        self.key_map = key_map
+
     def write_summary_json(self, outputdir=".", mode="global"):
         """This function uses all computed statistics and outputs a json
         file. Content will include the statistics table.
@@ -214,18 +248,25 @@ class Inversion(object):
 
         outdict["nregions"] = self.cmt3d_config.weight_config.azi_bins
 
-        outdict["var_reduction"] = self.G.var_reduction
+        outdict["stats"] = None
 
-        outdict["G"] = {"method": self.G.config.method,
-                        "tshift": self.G.t00_best,
-                        "ascale": self.G.m00_best,
-                        "bootstrap_mean": self.G.bootstrap_mean.tolist(),
-                        "bootstrap_std": self.G.bootstrap_std.tolist(),
-                        "chi_list": self.G.chi_list,
-                        "meancost_array": self.G.meancost_array.tolist(),
-                        "stdcost_array": self.G.stdcost_array.tolist(),
-                        "maxcost_array": self.G.maxcost_array.tolist(),
-                        "mincost_array": self.G.mincost_array.tolist()}
+        if self.G is not None:
+            outdict["var_reduction"] = self.G.var_reduction
+
+            outdict["G"] = {"method": self.G.config.method,
+                            "tshift": self.G.t00_best,
+                            "ascale": self.G.m00_best,
+                            "bootstrap_mean": self.G.bootstrap_mean.tolist(),
+                            "bootstrap_std": self.G.bootstrap_std.tolist(),
+                            "chi_list": self.G.chi_list,
+                            "meancost_array": self.G.meancost_array.tolist(),
+                            "stdcost_array": self.G.stdcost_array.tolist(),
+                            "maxcost_array": self.G.maxcost_array.tolist(),
+                            "mincost_array": self.G.mincost_array.tolist()}
+        else:
+            outdict["var_reduction"] = self.cmt3d.var_reduction
+            outdict["G"] = None
+
         outdict["config"] = {"envelope_coef": self.cmt3d_config.envelope_coef,
                              "npar": self.cmt3d_config.npar,
                              "zero_trace": self.cmt3d_config.zero_trace,

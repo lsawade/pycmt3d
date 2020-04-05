@@ -88,5 +88,8 @@ setup(
     ],
     extras_require={
         "docs": ["sphinx"]
+    },
+    entry_points={'console_scripts': [
+        'plot-summary = pycmt3d.plot_util:main']
     }
 )

@@ -251,12 +251,27 @@ class PlotStats(object):
             ax_min = -abs_max
             ax_max = abs_max
         binwidth = (ax_max - ax_min) / num_bin
-        plt.hist(
+
+        # Stats
+        a_mean = np.mean(data_a)
+        a_std = np.std(data_a)
+        b_mean = np.mean(data_b)
+        b_std = np.std(data_b)
+
+        nb, _, _ = plt.hist(
             data_b, bins=np.arange(ax_min, ax_max + binwidth / 2., binwidth),
             facecolor='blue', alpha=0.3)
-        plt.hist(
+        nb_max = np.max(nb)
+        plt.plot([b_mean, b_mean], [0, nb_max], "g--")
+        plt.plot([b_mean - b_std, b_mean + b_std],
+                 [nb_max / 2, nb_max / 2], "g--")
+        na, _, _ = plt.hist(
             data_a, bins=np.arange(ax_min, ax_max + binwidth / 2., binwidth),
             facecolor='green', alpha=0.5)
+        na_max = np.max(na)
+        plt.plot([a_mean, a_mean], [0, na_max], "b-")
+        plt.plot([a_mean - a_std, a_mean + a_std],
+                 [na_max / 2, na_max / 2], "b-")
 
     def extract_metadata(self, cat_name, meta_varname):
         data_old = []
@@ -290,7 +305,8 @@ class PlotStats(object):
                       'power_l1_ratio(dB)', 'power_l2_ratio(dB)',
                       'CC amplitude ratio(dB)', 'chi']
         num_bins = [15, 15, 15, 15, 15, 15]
-        vtype_dict = {'time shift': "tshift", 'cc': "cc",
+        vtype_dict = {'time shift': "tshift",
+                      'cc': "cc",
                       "power_l1_ratio(dB)": "power_l1",
                       "power_l2_ratio(dB)": "power_l2",
                       "CC amplitude ratio(dB)": "cc_amp",
@@ -1105,13 +1121,19 @@ class PlotInvSummary(object):
             plt.close('all')
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('filename', help='Path to inversion summary JSON file',
-                        type=str)
+    parser.add_argument('-f', help='Path to inversion summary JSON file',
+                        type=str, dest='inputfile', required=True)
+    parser.add_argument('-o', help='Output filename', dest='outputfile',
+                        required=True, type=str)
     args = parser.parse_args()
 
     # Run
-    pl = PlotInvSummary.from_JSON(args.filename)
-    pl.plot_inversion_summary(figurename="/Users/lucassawade/trying_hard.pdf")
+    pl = PlotInvSummary.from_JSON(args.inputfile)
+    pl.plot_inversion_summary(figurename=args.outputfile)
+
+
+if __name__ == "__main__":
+    main()
