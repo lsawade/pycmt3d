@@ -23,8 +23,8 @@ from .cmt3d import Cmt3D
 from .source import CMTSource
 from .grid3d import Grid3d
 from .grid3d import Grid3dConfig
-from . import gradient3d
-from . import gradient3d_mpi
+from .gradient3d import Gradient3dConfig
+from .gradient3d import Gradient3d
 from .data_container import DataContainer
 from .plot_util import PlotInvSummary
 from .plot_util import plot_seismograms
@@ -85,20 +85,13 @@ class Inversion(object):
 
             self.var_reduction = self.G.var_reduction
 
-        elif type(self.mt_config) in [gradient3d.Gradient3dConfig,
-                                      gradient3d_mpi.Gradient3dConfig]:
+        elif type(self.mt_config) == Gradient3dConfig:
             self.grid3d = None
 
-            if type(self.mt_config) == gradient3d.Gradient3dConfig:
-                self.G = gradient3d.Gradient3d(
-                    self.cmt3d.new_cmtsource,
-                    self.data_container,
-                    self.mt_config)
-            else:
-                self.G = gradient3d_mpi.Gradient3d(
-                    self.cmt3d.new_cmtsource,
-                    self.data_container,
-                    self.mt_config)
+            self.G = Gradient3d(
+                self.cmt3d.new_cmtsource,
+                self.data_container,
+                self.mt_config)
 
             self.G.search()
             self.new_cmtsource = copy.deepcopy(self.G.new_cmtsource)

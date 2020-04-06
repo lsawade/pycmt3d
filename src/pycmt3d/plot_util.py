@@ -37,8 +37,7 @@ from .source import CMTSource
 from .geo_data_util import GeoMap
 from .data_container import DataContainer, TraceWindow
 from .grid3d import Grid3d
-from . import gradient3d_mpi
-from . import gradient3d
+from .gradient3d import Gradient3d
 from . import logger
 from .util import get_cmt_par, get_trwin_tag
 from .util import load_json
@@ -404,10 +403,8 @@ class PlotInvSummary(object):
         self.prepare_array()
 
         # Loading G from the grid search
-        if type(G) in [gradient3d.Gradient3d,
-                       gradient3d_mpi.Gradient3d, dict]:
-            if type(G) in [gradient3d.Gradient3d,
-                           gradient3d_mpi.Gradient3d]:
+        if type(G) in [Gradient3d, dict]:
+            if type(G) == Gradient3d:
                 self.G = G
             elif type(G) == dict:
                 self.G = Struct(**G)
@@ -1051,7 +1048,7 @@ class PlotInvSummary(object):
                         color='darkgray', label=r"$\bar{\chi}\pm\sigma$")
         ax.plot(self.G.meancost_array, 'k', label=r"$\bar{\chi}$")
 
-        if type(self.G) in [gradient3d_mpi.Gradient3d, gradient3d.Gradient3d]:
+        if type(self.G) == Gradient3d:
             method = self.G.config.method
         else:
             method = self.G.method
@@ -1088,9 +1085,7 @@ class PlotInvSummary(object):
         if type(self.G) == Grid3d:
             plt.subplot(g[1, 0])
             self.G.plot_grid()
-        elif type(self.G) in [gradient3d_mpi.Gradient3d,
-                              gradient3d.Gradient3d,
-                              Struct]:
+        elif type(self.G) in [Gradient3d, Struct]:
             plt.subplot(g[1, 0])
             self.plot_cost()
         else:
