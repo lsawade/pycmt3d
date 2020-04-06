@@ -109,12 +109,13 @@ def _plot_new_seismogram_sub(trwin: TraceWindow, outputdir,
     synt = trwin.datalist['synt']
     new_synt = trwin.datalist['new_synt']
 
+    tag = trwin.tags['obsd']
     station = obsd.stats.station
     network = obsd.stats.network
     channel = obsd.stats.channel
     location = obsd.stats.location
-    outputfig = os.path.join(outputdir, "%s.%s.%s.%s.%s" % (
-        network, station, location, channel, figure_format))
+    outputfig = os.path.join(outputdir, "%s.%s.%s.%s.%s.%s" % (
+        tag, network, station, location, channel, figure_format))
 
     # Times and offsets computed individually, since the grid search applies
     # a timeshift which changes the times of the traces.
