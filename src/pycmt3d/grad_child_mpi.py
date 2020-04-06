@@ -11,7 +11,7 @@ the scalar moment and timeshift.
     (http://www.gnu.org/licenses/lgpl-3.0.en.html)
 """
 
-from .gradient3d_mpi import Gradient
+from .gradient3d import Gradient
 from mpi4py import MPI
 import numpy as np
 from copy import deepcopy

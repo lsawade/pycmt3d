@@ -43,7 +43,7 @@ def get_number_of_cores(bootstrap):
 
     slurm_cores = os.getenv("SLURM_NTASKS")
     if slurm_cores is None:
-        avail = psutil.cpu_count(logical=False) - 2
+        avail = psutil.cpu_count(logical=True) - 2
     else:
         avail = int(slurm_cores) - 1
 
@@ -422,7 +422,7 @@ class Gradient3d(object):
                 self.cost_array[_i, :len(clist)] = np.array(clist)
                 self.cost_array[_i, len(clist):] = clist[-1]
 
-        else:
+        elif self.mpi_env:
 
             # Sample result dictionary to measure size
 
@@ -455,7 +455,7 @@ class Gradient3d(object):
                 from mpi4py import MPI
             except Exception as e:
                 print(e)
-                ValueError("mpi4py note installed?")
+                ValueError("mpi4py not installed?")
 
             arg_list = ["-m", "pycmt3d.grad_child_mpi"]
 
@@ -496,6 +496,7 @@ class Gradient3d(object):
                 self.cost_array[_i, :] = clist[:maxlen]
                 self.cost_array[_i, bootstrap_cost_len[_i]:] = \
                     clist[bootstrap_cost_len[_i] - 1]
+
 
         self.maxcost_array = np.max(self.cost_array, axis=0)
         self.mincost_array = np.min(self.cost_array, axis=0)
