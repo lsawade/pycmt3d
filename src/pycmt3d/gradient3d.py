@@ -44,10 +44,10 @@ def get_number_of_cores(bootstrap):
     for spawning the MPI process"""
 
     # Use psutil to get physical cores available on node
-    # -2 because psutil will give all cores, but the main script
+    # -3 because psutil will give all cores, but the main script
     # is already occupying one core (sounds like it should be -1
-    # but we do -2 for safety)
-    avail = psutil.cpu_count(logical=False) - 2
+    # but we do -3 for safety)
+    avail = psutil.cpu_count(logical=False) - 3
 
     if avail < 1:
         avail = 1
