@@ -86,6 +86,7 @@ class Inversion(object):
             self.var_reduction = self.G.var_reduction
 
         elif type(self.mt_config) == Gradient3dConfig:
+
             self.grid3d = None
 
             self.G = Gradient3d(

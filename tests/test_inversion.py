@@ -198,6 +198,42 @@ def test_inversion_grad_no_mpi(cmtsource, tmpdir):
     inv.plot_summary(str(tmpdir))
 
 
+def test_inversion_grad_serial(cmtsource, tmpdir):
+
+    dcon_two = construct_dcon_two()
+
+    weight_config = DefaultWeightConfig(
+        normalize_by_energy=False, normalize_by_category=False,
+        comp_weight={"Z": 1.0, "R": 1.0, "T": 1.0},
+        love_dist_weight=1.0, pnl_dist_weight=1.0,
+        rayleigh_dist_weight=1.0, azi_exp_idx=0.5)
+
+    cmt3d_config = Config(9, dlocation=0.5, ddepth=0.5, dmoment=1.0e22,
+                          zero_trace=True, weight_data=True,
+                          station_correction=True,
+                          weight_config=weight_config,
+                          bootstrap=True, bootstrap_repeat=20,
+                          bootstrap_subset_ratio=0.4)
+
+    grad3d_config = Gradient3dConfig(method="gn", weight_data=True,
+                                     weight_config=weight_config,
+                                     use_new=True,
+                                     taper_type="tukey",
+                                     c1=1e-4, c2=0.9,
+                                     idt=0.0, ia=1.,
+                                     nt=10, nls=20,
+                                     crit=0.01,
+                                     precond=False, reg=False,
+                                     bootstrap=False, bootstrap_repeat=20,
+                                     bootstrap_subset_ratio=0.4,
+                                     parallel=False, mpi_env=False)
+
+    inv = Inversion(cmtsource, dcon_two, cmt3d_config, grad3d_config)
+    inv.source_inversion()
+    inv.write_summary_json(str(tmpdir))
+    inv.plot_summary(str(tmpdir))
+
+
 if __name__ == "__main__":
     outdir = "."
     cmt = CMTSource.from_CMTSOLUTION_file(CMTFILE)
@@ -247,7 +283,10 @@ if __name__ == "__main__":
                                      crit=0.01,
                                      precond=False, reg=False,
                                      bootstrap=True, bootstrap_repeat=20,
-                                     bootstrap_subset_ratio=0.4)
+                                     bootstrap_subset_ratio=0.4,
+                                     parallel=True, mpi_env=False
+                                     )
+
     inv = Inversion(cmt, dcon, cmt3d_config, grad3d_config)
     inv.source_inversion()
     inv.write_summary_json("/Users/lucassawade")

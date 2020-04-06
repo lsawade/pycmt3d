@@ -3,18 +3,26 @@
 """
 Class for Gauss Newton and Hessian optimization of
 the scalar moment and timeshift.
+ To run this code in mpi mode the child function
+ "grad_child_mpi.py" is essential!
 
 :copyright:
     Lucas Sawade (lsawade@princeton.edu), 2020
 :license:
     GNU Lesser General Public License, version 3 (LGPLv3)
     (http://www.gnu.org/licenses/lgpl-3.0.en.html)
+
 """
+
 from __future__ import print_function, division, absolute_import
-import sys
 import os
+import sys
 import numpy as np
 from copy import deepcopy
+import time
+import psutil
+from joblib import delayed
+from joblib import Parallel
 
 # Internal imports
 from .source import CMTSource
@@ -22,7 +30,6 @@ from .data_container import DataContainer
 from .data_container import MetaInfo
 from . import logger
 from .weight import Weight, setup_energy_weight
-from .config import WeightConfig
 from .measure import calculate_variance_on_trace
 from .util import timeshift_mat
 from .util import get_window_idx
@@ -30,21 +37,13 @@ from .util import construct_taper
 from .mpi_utils import broadcast_dict
 from .mpi_utils import get_result_dictionaries
 from .mpi_utils import split
-import time
-
-import psutil
-from joblib import delayed
-from joblib import Parallel
 
 
 def get_number_of_cores(bootstrap):
     """Returns the number of appropriate cores
     for spawning the MPI process"""
-    try:
-        slurm_cores = os.getenv("SLURM_NTASKS")
-    except NameError:
-        slurm_cores = None
 
+    slurm_cores = os.getenv("SLURM_NTASKS")
     if slurm_cores is None:
         avail = psutil.cpu_count(logical=False) - 2
     else:
@@ -98,7 +97,6 @@ def check_wolfe(alpha, fcost, fcost_new, q, qnew, c1=1e-4, c2=0.9,
 
 
 def update_alpha(alpha, al, ar, wolfe, factor=1):
-
     w1 = wolfe[0]
     w2 = wolfe[1]
     w3 = wolfe[2]
@@ -114,14 +112,13 @@ def update_alpha(alpha, al, ar, wolfe, factor=1):
 
     elif w1 is False:  # not a sufficient decrease, we've been too far
         ar = alpha
-        alpha = (al + ar)*0.5
+        alpha = (al + ar) * 0.5
 
     elif w1 is True and w2 is False:
         al = alpha
-        if ar > 0:
-            # sufficient decrease but too close already backeted
+        if ar > 0:  # sufficient decrease but too close already backeted
             # decrease in interval
-            alpha = (al + ar)*0.5
+            alpha = (al + ar) * 0.5
         else:  # sufficient decrease but too close, then increase a
             alpha = factor * alpha
 
@@ -129,9 +126,8 @@ def update_alpha(alpha, al, ar, wolfe, factor=1):
 
 
 def precondition(B, g):
-
     # Preconditioning
-    fac = 1/np.array([B[0, 0], B[1, 1]])
+    fac = 1 / np.array([B[0, 0], B[1, 1]])
     H = np.diag(fac)
     # PB = Pinv @ B
     # Pg = Pinv @ g
@@ -143,7 +139,6 @@ def precondition(B, g):
 
 
 def reguralization(B):
-
     lb = np.median(B)
     lbm = np.eye(2) * lb
 
@@ -151,18 +146,17 @@ def reguralization(B):
 
 
 class Gradient3dConfig(object):
-    def __init__(self, method: str = "gn", weight_data: bool = False,
-                 weight_config: WeightConfig or None = None,
-                 use_new: bool = False,
-                 taper_type: str = "tukey",
-                 c1: float = 1e-4, c2: float = 0.9,
-                 idt: float = 0.0, ia: float = 1.,
+    def __init__(self, method="gn", weight_data=False, weight_config=None,
+                 use_new=False,
+                 taper_type="tukey",
+                 c1=1e-4, c2=0.9,
+                 idt: float = 0.0, ia=1.,
                  nt: int = 50, nls: int = 20,
                  crit: float = 0.01,
                  precond: bool = False, reg: bool = False,
-                 bootstrap: bool = True, bootstrap_repeat: int = 20,
-                 bootstrap_subset_ratio: float = 0.4,
-                 mpi_env: bool = True):
+                 bootstrap=True, bootstrap_repeat=20,
+                 bootstrap_subset_ratio=0.4,
+                 parallel: bool = True, mpi_env: bool = True):
         """Configuration for the gradient method.
 
         Args:
@@ -170,11 +164,9 @@ class Gradient3dConfig(object):
             weight_data (bool,optional): contains the weightdata.
                                          Defaults to False.
             weight_config ([type], optional): contains the weightdata
-                                              configuration.
-                                              Defaults to None.
-            use_new (bool, optional): Choice of whether to use synthetics
-                                      from a cmt3d inversion.
-                                      Defaults to False.
+                                              configuration. Defaults to None.
+            use_new (bool, optional): Choice of whether to use synthetics from
+                                      a cmt3d inversion. Defaults to False.
             taper_type (str, optional): Taper for window selection.
                                         Defaults to "tukey".
             c1 (float, optional): Wolfe condition parameter. Defaults to 1e-4
@@ -183,8 +175,7 @@ class Gradient3dConfig(object):
                                    Defaults to 0.0
             ia (float, optional): Starting value for the moment scaling
                                   factor. Defaults to 1.0
-            nt (int, optional): Maximum number of iterations.
-                                Defaults to 50.
+            nt (int, optional): Maximum number of iterations. Defaults to 50.
             nls (int, optional): Maximum number of linesearch iterations.
                                  Defaults to 20.
             crit (float, optional): critical misfit reduction.
@@ -196,19 +187,20 @@ class Gradient3dConfig(object):
             bootstrap (bool, optional): Whether to perform a bootstrap
                                         statistic. Defaults to True.
             bootstrap_parallel (int, optional): whether to perform the
-                                                bootstrap statistic in
-                                                parallel. 0 = serial,
-                                                1 = parallel and let
-                                                the program figure out
-                                                the number of cores. all
-                                                other integers define
+                                                bootstrap
+                                                statistic in parallel.
+                                                0 = serial,
+                                                1 = parallel and let the
+                                                program figure out
                                                 the number of cores.
+                                                all other integers
+                                                define the number of cores.
             bootstrap_repeat (int, optional): number of repeats to be done.
                                               Defaults to 20.
-            bootstrap_subset_ratio (float, optional): taking a certain ratio
-                                                      of the available
-                                                      data to compute
-                                                      a bootstrap statistic.
+            bootstrap_subset_ratio (float, optional): taking a certain ratio of
+                                                      the available
+                                                      data to compute a
+                                                      bootstrap statistic.
                                                       Defaults to 0.4.
 
         Raises:
@@ -236,7 +228,8 @@ class Gradient3dConfig(object):
         self.c1 = c1
         self.c2 = c2
 
-        # Multiprocessing
+        # MPI
+        self.parallel = parallel
         self.mpi_env = mpi_env
 
         # Bootstrap parameters
@@ -366,7 +359,7 @@ class Gradient3d(object):
         # Extract values
         self.t00_best = G.dt
         self.m00_best = G.a
-        self.chi_list = G.cost_list
+        self.chi_list = G.cost_list[:G.it]
 
         # Bootstrap if wanted
         if self.config.bootstrap:
@@ -396,7 +389,8 @@ class Gradient3d(object):
         maxlen = 0
 
         timer0 = time.time()
-        if "pytest" in sys.modules:
+
+        if not self.config.parallel:
             self.num_cores = 1
         else:
             self.num_cores = get_number_of_cores(self.config.bootstrap_repeat)
@@ -406,7 +400,6 @@ class Gradient3d(object):
 
         np.random.seed(1234)
         random_arrays = []
-
         for _i in range(self.config.bootstrap_repeat):
             # Get random array
             random_array = np.random.choice(self.ntraces, self.n_subset,
@@ -414,20 +407,18 @@ class Gradient3d(object):
             random_arrays.append(random_array)
 
         if self.num_cores == 1:
-
+            np.random.seed(1234)
             for _i in range(self.config.bootstrap_repeat):
-
                 # Compute bootstrap stuff
                 bt, bm, bcost, costlen = self.bootstrap_wrapper(
-                    _i, self.num_cores, self.ntraces, self.n_subset,
-                    config=self.config, obsd=self.obsd[random_arrays[_i], :],
-                    synt=self.synt[random_arrays[_i], :],
-                    tapers=self.tapers[random_arrays[_i], :], delta=self.delta)
+                    _i, self.config, self.obsd[random_arrays[_i], :],
+                    self.synt[random_arrays[_i], :],
+                    self.tapers[random_arrays[_i], :], self.delta)
 
                 # Put everything into arrays
                 bootstrap_t[_i] = bt
                 bootstrap_m[_i] = bm
-                bootstrap_cost_lists.append(bcost)
+                bootstrap_cost_lists.append(bcost[:costlen])
                 maxlen = np.max(np.array([maxlen, costlen]))
 
             # Compute stats
@@ -437,13 +428,12 @@ class Gradient3d(object):
                                            np.std(bootstrap_t)])
 
             # Fix bootstrap cost list.
-            self.cost_array = np.zeros(
-                (self.config.bootstrap_repeat, maxlen))
+            self.cost_array = np.zeros((self.config.bootstrap_repeat, maxlen))
             for _i, clist in enumerate(bootstrap_cost_lists):
                 self.cost_array[_i, :len(clist)] = np.array(clist)
                 self.cost_array[_i, len(clist):] = clist[-1]
 
-        elif self.config.mpi_env and self.num_cores > 1:
+        elif self.num_cores > 1 and self.config.mpi_env:
 
             # Sample result dictionary to measure size
 
@@ -517,24 +507,23 @@ class Gradient3d(object):
                 self.cost_array[_i, :] = clist[:maxlen]
                 self.cost_array[_i, bootstrap_cost_len[_i]:] = \
                     clist[bootstrap_cost_len[_i] - 1]
-
         else:
 
-            # backend='multiprocessing'
             results = Parallel(n_jobs=self.num_cores)(
                 delayed(self.bootstrap_wrapper)(
-                    k, self.num_cores, self.ntraces, self.n_subset,
-                    self.config,
+                    k, config=self.config,
                     obsd=self.obsd[random_arrays[k], :],
                     synt=self.synt[random_arrays[k], :],
                     tapers=self.tapers[random_arrays[k], :],
                     delta=self.delta)
                 for k in range(self.config.bootstrap_repeat))
 
+            bootstrap_cost_len = []
             for _i, result in enumerate(results):
                 bootstrap_t[_i] = result[0]
                 bootstrap_m[_i] = result[1]
                 bootstrap_cost_lists.append(result[2])
+                bootstrap_cost_len.append(result[3])
                 maxlen = np.max(np.array([maxlen, result[3]]))
 
             # Compute stats
@@ -546,8 +535,22 @@ class Gradient3d(object):
             # Fix bootstrap cost list.
             self.cost_array = np.zeros((self.config.bootstrap_repeat, maxlen))
             for _i, clist in enumerate(bootstrap_cost_lists):
-                self.cost_array[_i, :len(clist)] = np.array(clist)
-                self.cost_array[_i, len(clist):] = clist[-1]
+                self.cost_array[_i, :] = clist[:maxlen]
+                self.cost_array[_i, bootstrap_cost_len[_i]:] = \
+                    clist[bootstrap_cost_len[_i] - 1]
+
+            # # Compute stats
+            # self.bootstrap_mean = np.array([np.mean(bootstrap_m),
+            #                                 np.mean(bootstrap_t)])
+            # self.bootstrap_std = np.array([np.std(bootstrap_m),
+            #                                np.std(bootstrap_t)])
+            #
+            # # Fix bootstrap cost list.
+            # self.cost_array = np.zeros(
+            #     (self.config.bootstrap_repeat, maxlen))
+            # for _i, clist in enumerate(bootstrap_cost_lists):
+            #     self.cost_array[_i, :len(clist)] = np.array(clist)
+            #     self.cost_array[_i, len(clist):] = clist[-1]
 
         self.maxcost_array = np.max(self.cost_array, axis=0)
         self.mincost_array = np.min(self.cost_array, axis=0)
@@ -557,8 +560,7 @@ class Gradient3d(object):
         logger.info("Total Bootstrap time: %.2f" % (time.time() - timer0))
 
     @staticmethod
-    def bootstrap_wrapper(k, num_cores, ntraces, n_subset, config=None,
-                          obsd=None, synt=None, tapers=None, delta=None):
+    def bootstrap_wrapper(k, config, obsd, synt, tapers, delta):
         """This function simply wraps around the gradient subset method
         to efficiently compute bootstrap subsets"""
 
@@ -582,7 +584,7 @@ class Gradient3d(object):
         bootstrap_m = G.a
         bootstrap_cost_list = G.cost_list
 
-        cost_list_len = len(G.cost_list)
+        cost_list_len = len(G.cost_list[:G.it])
 
         logger.info("Bootstrap Repeat: %d/%d done."
                     % (k, config.bootstrap_repeat))
@@ -606,11 +608,8 @@ class Gradient3d(object):
         # Prepare weights
         if self.config.weight_data:
             weights = []
-            for _meta in self.metas:
-                if self.config.weight_config.normalize_by_energy:
-                    weights.extend(_meta.weights / _meta.prov["wav_energy"])
-                else:
-                    weights.extend(_meta.weights)
+            for meta in self.metas:
+                weights.extend(meta.weights)
             weights = np.array(weights)
         else:
             if self.data_container.nwindows:
@@ -688,7 +687,7 @@ class Gradient3d(object):
         logger.info("\tAdding time shift to cmt origin time:"
                     "%s + %fsec= %s"
                     % (self.cmtsource.cmt_time, self.t00_best,
-                        newcmt.cmt_time))
+                       newcmt.cmt_time))
 
         attrs = ["m_rr", "m_tt", "m_pp", "m_rt", "m_rp", "m_tp"]
         for attr in attrs:
@@ -731,48 +730,10 @@ class Gradient3d(object):
             # correct the starting time of new_synt)
             meta.prov["new_synt"]["tshift"] -= self.t00_best
 
-    # def plot_cost(self, figurename=None):
-    #
-    #     if figurename is None:
-    #         ax = plt.gca()
-    #
-    #     else:
-    #         plt.figure()
-    #         ax = plt.axes()
-    #
-    #     if self.config.bootstrap:
-    #         x = np.arange(0, self.cost_array.shape[1], 1)
-    #         ax.fill_between(x, self.mincost_array, self.maxcost_array,
-    #                         color='lightgray', label="min/max")
-    #         ax.fill_between(x, self.meancost_array - self.stdcost_array,
-    #                         self.meancost_array + self.stdcost_array,
-    #                         color='darkgray', label=r"$\bar{\chi}\pm\sigma$")
-    #         ax.plot(self.meancost_array, 'k', label=r"$\bar{\chi}$")
-    #
-    #     if self.config.method == "gn":
-    #         label = "Gauss-Newton"
-    #     else:
-    #         label = "Newton"
-    #
-    #     ax.plot(self.chi_list, "r",
-    #             label=r"%s ($\mathcal{C}_{min} = %.3f$)"
-    #             % (label, self.chi_list[-1]))
-    #     plt.legend(prop={'size': 6}, fancybox=False, framealpha=1)
-    #     ax.set_xlabel("Iteration #")
-    #     ax.set_ylabel("Misfit reduction")
-    #
-    #     if figurename is None:
-    #         pass
-    #     elif figurename == 'show':
-    #         plt.show()
-    #     else:
-    #         plt.savefig(figurename)
-    #         plt.close()
-
 
 class Gradient(object):
 
-    def __init__(self,  obsd: np.ndarray, synt: np.ndarray,
+    def __init__(self, obsd: np.ndarray, synt: np.ndarray,
                  tapers: np.ndarray, delta: np.float, method: str = "gn",
                  ia: float = 1.0, idt: float = 0.0, nt=20, nls=20,
                  c1: float = 1e-4, c2: float = 0.9,
@@ -826,11 +787,11 @@ class Gradient(object):
         if self.precond:
             logger.info("Using preconditioner for matrix inversion...")
 
-        while self.chi/self.chi0 > self.crit and self.it <= self.nt:
+        while self.chi / self.chi0 > self.crit and self.it <= self.nt:
 
             if self.verbose:
                 logger.info("Iter: %3d -- C=%4f -- dt=%4f -- A=%4f"
-                            % (self.it, self.chi/self.chi0,
+                            % (self.it, self.chi / self.chi0,
                                self.dt, self.a))
 
             # Compute Analytical hessian using Newton's method
@@ -867,11 +828,12 @@ class Gradient(object):
             self.a_list.append(self.a)
 
             if np.abs((self.chi - self.chip) / self.chip) < 1e-3:
-                logger.info("No improvement!")
+                if self.verbose:
+                    logger.info("No improvement!")
                 break
 
             self.chip = self.chi
-            self.cost_list.append(self.chi/self.chi0)
+            self.cost_list[self.it] = self.chi / self.chi0
             self.it += 1
 
     def line_search(self):
