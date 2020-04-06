@@ -23,7 +23,7 @@ from pycmt3d import CMTSource
 from pycmt3d import DataContainer
 from pycmt3d import Grid3dConfig
 from pycmt3d import Inversion
-from pycmt3d.gradient3d import Gradient3dConfig
+from pycmt3d.gradient3d_mpi import Gradient3dConfig
 # Most generic way to get the data geology path.
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(
     inspect.getfile(inspect.currentframe()))), "data")
@@ -211,7 +211,7 @@ if __name__ == "__main__":
                                      nt=10, nls=20,
                                      crit=0.01,
                                      precond=False, reg=False,
-                                     bootstrap=False, bootstrap_repeat=20,
+                                     bootstrap=True, bootstrap_repeat=20,
                                      bootstrap_subset_ratio=0.4)
     inv = Inversion(cmt, dcon, cmt3d_config, grad3d_config)
     inv.source_inversion()

@@ -37,7 +37,8 @@ from .source import CMTSource
 from .geo_data_util import GeoMap
 from .data_container import DataContainer, TraceWindow
 from .grid3d import Grid3d
-from .gradient3d import Gradient3d
+from . import gradient3d_mpi
+from . import gradient3d
 from . import logger
 from .util import get_cmt_par, get_trwin_tag
 from .util import load_json
@@ -262,16 +263,16 @@ class PlotStats(object):
             data_b, bins=np.arange(ax_min, ax_max + binwidth / 2., binwidth),
             facecolor='blue', alpha=0.3)
         nb_max = np.max(nb)
-        plt.plot([b_mean, b_mean], [0, nb_max], "g--")
+        plt.plot([b_mean, b_mean], [0, nb_max], "b--")
         plt.plot([b_mean - b_std, b_mean + b_std],
-                 [nb_max / 2, nb_max / 2], "g--")
+                 [nb_max / 2, nb_max / 2], "b--")
         na, _, _ = plt.hist(
             data_a, bins=np.arange(ax_min, ax_max + binwidth / 2., binwidth),
             facecolor='green', alpha=0.5)
         na_max = np.max(na)
-        plt.plot([a_mean, a_mean], [0, na_max], "b-")
+        plt.plot([a_mean, a_mean], [0, na_max], "g-")
         plt.plot([a_mean - a_std, a_mean + a_std],
-                 [na_max / 2, na_max / 2], "b-")
+                 [na_max / 2, na_max / 2], "g-")
 
     def extract_metadata(self, cat_name, meta_varname):
         data_old = []
@@ -403,8 +404,10 @@ class PlotInvSummary(object):
         self.prepare_array()
 
         # Loading G from the grid search
-        if type(G) in [Gradient3d, dict]:
-            if type(G) == Gradient3d:
+        if type(G) in [gradient3d.Gradient3d,
+                       gradient3d_mpi.Gradient3d, dict]:
+            if type(G) in [gradient3d.Gradient3d,
+                           gradient3d_mpi.Gradient3d]:
                 self.G = G
             elif type(G) == dict:
                 self.G = Struct(**G)
@@ -1048,7 +1051,7 @@ class PlotInvSummary(object):
                         color='darkgray', label=r"$\bar{\chi}\pm\sigma$")
         ax.plot(self.G.meancost_array, 'k', label=r"$\bar{\chi}$")
 
-        if type(self.G) == Gradient3d:
+        if type(self.G) in [gradient3d_mpi.Gradient3d, gradient3d.Gradient3d]:
             method = self.G.config.method
         else:
             method = self.G.method
@@ -1085,7 +1088,9 @@ class PlotInvSummary(object):
         if type(self.G) == Grid3d:
             plt.subplot(g[1, 0])
             self.G.plot_grid()
-        elif type(self.G) in [Gradient3d, Struct]:
+        elif type(self.G) in [gradient3d_mpi.Gradient3d,
+                              gradient3d.Gradient3d,
+                              Struct]:
             plt.subplot(g[1, 0])
             self.plot_cost()
         else:

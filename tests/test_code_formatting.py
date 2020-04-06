@@ -11,14 +11,12 @@ and some other sanity checks as well.
     (http://www.gnu.org/copyleft/gpl.html)
 """
 from flake8.api import legacy as flake8
-import inspect
 import os
 
 
 def test_flake8():
-    test_dir = os.path.dirname(os.path.abspath(inspect.getfile(
-        inspect.currentframe())))
-    package_dir = os.path.dirname(test_dir)
+    test_dir = os.path.dirname(__file__)
+    package_dir = os.path.join(os.path.dirname(test_dir))
 
     # Possibility to ignore some files and paths.
     ignore_paths = [
