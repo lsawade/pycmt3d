@@ -655,15 +655,6 @@ class Gradient3d(object):
                     * weights[counter]
                 counter += 1
 
-        fig = plt.figure()
-        ntt = len(self.tapers[0])
-        for idx, tap in enumerate(self.tapers):
-            plt.plot(np.arange(ntt), -tap/np.max(tap)*0.9+idx)
-        plt.gca().invert_yaxis()
-        # plt.savefig("/Users/lucassawade/test.pdf")
-        plt.savefig("/scratch/gpfs/lsawade/test.pdf")
-        plt.close(fig)
-
     def calculate_variance(self):
         """ Computes the variance reduction"""
         var_all = 0.0
@@ -968,9 +959,9 @@ class Gradient(object):
 
         # d2sdt2 = np.gradient(dsdt, self.delta, axis=-1)
 
-        dCdt = np.sum(self.res * self.delta * self.a * dsdt)
+        dCdt = np.sum(self.res * self.delta * self.a * dsdt * self.tapers)
 
-        dCda = - np.sum(self.res * self.delta * self.ssynt)
+        dCda = - np.sum(self.res * self.delta * self.ssynt * self.tapers)
 
         return np.array([dCda, dCdt]).T
 
@@ -988,10 +979,11 @@ class Gradient(object):
         d2Cda2 = np.sum(self.ssynt ** 2 * self.delta * self.tapers)
 
         d2Cdt2 = np.sum(((dsdt * self.a) ** 2
-                         - d2sdt2 * self.res * self.a) * self.delta
-                        * self.tapers)
+                         - d2sdt2 * self.res * self.a)
+                        * self.delta * self.tapers)
 
-        d2Cdadt = np.sum((dsdt * (self.res - self.a * self.ssynt))
+        d2Cdadt = np.sum((dsdt * (self.res
+                                  - self.a * self.ssynt))
                          * self.delta * self.tapers)
 
         return np.array([[d2Cda2, d2Cdadt],
@@ -1008,7 +1000,7 @@ class Gradient(object):
         """Takes in a set of data (needs to be same as original obsd data
         and computes the misfit between the input and observed data.
         """
-        return self.tapers * (self.obsd - self.ssynt)
+        return self.obsd - self.ssynt
 
     @staticmethod
     def arraystr(array):
