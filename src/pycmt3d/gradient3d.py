@@ -657,7 +657,10 @@ class Gradient3d(object):
 
         fig = plt.figure()
         plt.matshow(self.tapers)
+        ax = plt.gca()
         plt.colorbar()
+        ax.set_aspect(self.npts/self.nwin)
+        # plt.savefig("/Users/lucassawade/test.pdf")
         plt.savefig("/scratch/gpfs/lsawade/test.pdf")
         plt.close(fig)
 
