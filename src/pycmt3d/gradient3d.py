@@ -935,8 +935,8 @@ class Gradient(object):
         dsda = - self.ssynt
         dsddt = self.a * np.gradient(self.ssynt, self.delta, axis=-1)
 
-        return np.array([np.sum(self.res * self.delta * dsda * self.tapers),
-                         np.sum(self.res * self.delta * dsddt * self.tapers)])
+        return np.array([np.sum(self.res * dsda * self.tapers),
+                         np.sum(self.res * dsddt * self.tapers)])
 
     def compute_JJ(self):
         """Gauss Newton approach with JtJ delta m.""""""Computes the Gauss Newton approximate Hessian.
@@ -945,9 +945,9 @@ class Gradient(object):
         dsda = - self.ssynt
         dsddt = self.a * np.gradient(self.ssynt, self.delta, axis=-1)
 
-        J11 = np.sum(dsda ** 2 * self.delta * self.tapers)
-        J22 = np.sum(dsddt ** 2 * self.delta * self.tapers)
-        J21 = np.sum(dsda * dsddt * self.delta * self.tapers)
+        J11 = np.sum(dsda ** 2 * self.tapers)
+        J22 = np.sum(dsddt ** 2 * self.tapers)
+        J21 = np.sum(dsda * dsddt * self.tapers)
 
         return np.array([[J11, J21], [J21, J22]])
 
