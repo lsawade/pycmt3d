@@ -164,7 +164,7 @@ class Gradient3dConfig(object):
                  nt: int = 50, nls: int = 20,
                  crit: float = 0.01,
                  precond: bool = False, reg: bool = False,
-                 damping=0.01,
+                 damping=None,
                  bootstrap=True, bootstrap_repeat=20,
                  bootstrap_subset_ratio=0.4,
                  parallel: bool = True, mpi_env: bool = True):

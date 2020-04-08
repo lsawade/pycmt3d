@@ -409,16 +409,15 @@ class PlotInvSummary(object):
                 self.G = G
             elif type(G) == dict:
                 self.G = Struct(**G)
-                print(self.G.__dict__)
                 for att in self.G.__dict__.keys():
                     if isinstance(getattr(self.G, att), list):
                         setattr(self.G, att,
                                 np.array(getattr(self.G, att)))
             # Fix time
-            print(self.G.bootstrap_mean[0])
             if not np.isnan(self.G.bootstrap_mean[0]):
                 self.bootstrap_mean[9] = self.G.bootstrap_mean[1]
                 self.bootstrap_std[9] = self.G.bootstrap_std[1]
+
                 # Fix moment
                 self.bootstrap_mean = np.append(self.bootstrap_mean,
                                                 self.G.bootstrap_mean[0]
@@ -427,6 +426,11 @@ class PlotInvSummary(object):
                                                self.G.bootstrap_std[0]
                                                * self.cmtsource.M0)
             else:
+                # Fix time
+                self.bootstrap_mean[9] = np.nan
+                self.bootstrap_std[9] = np.nan
+
+                # Fix moment
                 self.bootstrap_mean = np.append(self.bootstrap_mean, np.nan)
                 self.bootstrap_std = np.append(self.bootstrap_std, np.nan)
 
