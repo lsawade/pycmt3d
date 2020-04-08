@@ -247,7 +247,7 @@ if __name__ == "__main__":
                                    file_format="txt")
 
     weight_config = DefaultWeightConfig(
-        normalize_by_energy=False, normalize_by_category=False,
+        normalize_by_energy=True, normalize_by_category=True,
         comp_weight={"Z": 1.0, "R": 1.0, "T": 1.0},
         love_dist_weight=1.0, pnl_dist_weight=1.0,
         rayleigh_dist_weight=1.0, azi_exp_idx=0.5)

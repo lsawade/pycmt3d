@@ -22,7 +22,7 @@ import time
 import psutil
 from joblib import delayed
 from joblib import Parallel
-
+import matplotlib.pyplot as plt
 # Internal imports
 from .source import CMTSource
 from .data_container import DataContainer
@@ -36,6 +36,8 @@ from .util import construct_taper
 from .mpi_utils import broadcast_dict
 from .mpi_utils import get_result_dictionaries
 from .mpi_utils import split
+
+plt.switch_backend('agg')
 
 
 def get_number_of_cores(bootstrap):
@@ -620,6 +622,7 @@ class Gradient3d(object):
         if self.config.weight_data:
             weights = []
             for meta in self.metas:
+                print(meta.weights)
                 weights.extend(meta.weights)
             weights = np.array(weights)
         else:
@@ -648,9 +651,18 @@ class Gradient3d(object):
                                               self.delta)
 
                 self.tapers[_k, istart:iend] = \
-                    construct_taper(iend - istart, taper_type='hann') \
+                    construct_taper(iend - istart, taper_type='tukey') \
                     * weights[counter]
                 counter += 1
+
+        fig = plt.figure()
+        ntt = len(self.tapers[0])
+        for idx, tap in enumerate(self.tapers):
+            plt.plot(np.arange(ntt), -tap/np.max(tap)*0.9+idx)
+        plt.gca().invert_yaxis()
+        # plt.savefig("/Users/lucassawade/test.pdf")
+        plt.savefig("/scratch/gpfs/lsawade/test.pdf")
+        plt.close(fig)
 
     def calculate_variance(self):
         """ Computes the variance reduction"""
