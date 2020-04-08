@@ -959,9 +959,9 @@ class Gradient(object):
 
         # d2sdt2 = np.gradient(dsdt, self.delta, axis=-1)
 
-        dCdt = np.sum(self.res * self.delta * self.a * dsdt * self.tapers)
+        dCdt = np.sum(self.res * self.delta * self.a * dsdt)
 
-        dCda = - np.sum(self.res * self.delta * self.ssynt * self.tapers)
+        dCda = - np.sum(self.res * self.delta * self.ssynt)
 
         return np.array([dCda, dCdt]).T
 
@@ -979,11 +979,10 @@ class Gradient(object):
         d2Cda2 = np.sum(self.ssynt ** 2 * self.delta * self.tapers)
 
         d2Cdt2 = np.sum(((dsdt * self.a) ** 2
-                         - d2sdt2 * self.res * self.a)
-                        * self.delta * self.tapers)
+                         - d2sdt2 * self.res * self.a) * self.delta
+                        * self.tapers)
 
-        d2Cdadt = np.sum((dsdt * (self.res
-                                  - self.a * self.ssynt))
+        d2Cdadt = np.sum((dsdt * (self.res - self.a * self.ssynt))
                          * self.delta * self.tapers)
 
         return np.array([[d2Cda2, d2Cdadt],
@@ -1000,7 +999,7 @@ class Gradient(object):
         """Takes in a set of data (needs to be same as original obsd data
         and computes the misfit between the input and observed data.
         """
-        return self.obsd - self.ssynt
+        return (self.obsd - self.ssynt)
 
     @staticmethod
     def arraystr(array):
