@@ -655,10 +655,10 @@ class Gradient3d(object):
                     * weights[counter]
                 counter += 1
 
-        fig = plt.figure()
-        plt.matshow(self.tapers)
+        fig = plt.figure(figsize=(1.25*10, 10))
         ax = plt.gca()
-        plt.colorbar()
+        matmat = ax.matshow(self.tapers)
+        plt.colorbar(matmat)
         ax.set_aspect(self.npts/self.nwin)
         # plt.savefig("/Users/lucassawade/test.pdf")
         plt.savefig("/scratch/gpfs/lsawade/test.pdf")
