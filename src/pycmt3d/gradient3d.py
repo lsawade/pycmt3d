@@ -137,6 +137,17 @@ def precondition(B, g):
     return H, g
 
 
+def damping(B, damping=0.01):
+    """Takes in a matrix before inverting it and adds the trace to the diagonal
+    elements
+    :param B: Matrix to invert
+    :param damping: damping factor. Default 0.01
+    :return:
+    """
+
+    return B + damping * np.trace(B) * np.eye(B.shape[0])
+
+
 def reguralization(B):
     lb = np.median(B)
     lbm = np.eye(2) * lb
@@ -153,6 +164,7 @@ class Gradient3dConfig(object):
                  nt: int = 50, nls: int = 20,
                  crit: float = 0.01,
                  precond: bool = False, reg: bool = False,
+                 damping=0.01,
                  bootstrap=True, bootstrap_repeat=20,
                  bootstrap_subset_ratio=0.4,
                  parallel: bool = True, mpi_env: bool = True):
@@ -220,6 +232,7 @@ class Gradient3dConfig(object):
         self.nt = nt
         self.nls = nls
         self.crit = crit
+        self.damping = damping
         self.reg = reg
         self.precond = precond
 
@@ -575,8 +588,7 @@ class Gradient3d(object):
                      nt=config.nt, nls=config.nls,
                      crit=config.crit,
                      precond=config.precond,
-                     reg=config.reg,
-                     verbose=False)
+                     reg=config.reg, damping=config.damping)
         G.gradient()
 
         bootstrap_t = G.dt
@@ -736,8 +748,9 @@ class Gradient(object):
                  tapers: np.ndarray, delta: np.float, method: str = "gn",
                  ia: float = 1.0, idt: float = 0.0, nt=20, nls=20,
                  c1: float = 1e-4, c2: float = 0.9,
+                 damping: float or None = None,
                  crit: float = 1e-3, precond: bool = False,
-                 reg: bool = False, verbose: bool = True):
+                 reg: bool = False):
 
         self.obsd = obsd
         self.synt = synt
@@ -757,6 +770,7 @@ class Gradient(object):
         self.it = 1
         self.nt = nt
         self.nls = nls
+        self.damping = damping
         self.precond = precond
         self.reg = reg
 
@@ -779,23 +793,29 @@ class Gradient(object):
         self.m = np.array([self.a, self.dt])
         self.m_list = [self.m]
 
-        self.verbose = verbose
-
     def gradient(self):
 
         if self.precond:
-            logger.info("Using preconditioner for matrix inversion...")
+            logger.info("Preconditioner not set...")
 
         while self.chi / self.chi0 > self.crit and self.it <= self.nt:
 
-            if self.verbose:
-                logger.info("Iter: %3d -- C=%4f -- dt=%4f -- A=%4f"
-                            % (self.it, self.chi / self.chi0,
-                               self.dt, self.a))
+            logger.debug("Iter: %3d -- C=%4f -- dt=%4f -- A=%4f"
+                         % (self.it, self.chi / self.chi0,
+                            self.dt, self.a))
 
             # Compute Analytical hessian using Newton's method
             self.B = self.compute_hessian()
             self.g = self.compute_gradient()
+
+            if self.damping is not None:
+                logger.debug("Damping:")
+                logger.debug("Cond. number prior to damping: %.2f"
+                             % np.linalg.cond(self.B))
+                self.B = damping(self.B, damping=self.damping)
+                logger.debug("Cond. number post damping: %.2f"
+                             % np.linalg.cond(self.B))
+                self.g += self.damping * self.m
 
             # Preconditioning To make Hessian stabile
             if self.precond:
@@ -827,8 +847,7 @@ class Gradient(object):
             self.a_list.append(self.a)
 
             if np.abs((self.chi - self.chip) / self.chip) < 1e-3:
-                if self.verbose:
-                    logger.info("No improvement!")
+                logger.debug("No improvement!")
                 break
 
             self.chip = self.chi
@@ -849,9 +868,7 @@ class Gradient(object):
         for _i in range(self.nls):
 
             # print linesearch iteration info
-            if self.verbose:
-                logger.info("LS_Iter: %d -- alpha=%4f"
-                            % (_i, alpha))
+            logger.debug("LS_Iter: %d -- alpha=%4f" % (_i, alpha))
 
             # Get new measurements
             mnew = self.m + alpha * self.dm
@@ -939,9 +956,9 @@ class Gradient(object):
 
         # d2sdt2 = np.gradient(dsdt, self.delta, axis=-1)
 
-        dCdt = np.sum(self.res * self.delta * self.a * dsdt * self.tapers)
+        dCdt = np.sum(self.res * self.delta * self.a * dsdt)
 
-        dCda = - np.sum(self.res * self.delta * self.ssynt * self.tapers)
+        dCda = - np.sum(self.res * self.delta * self.ssynt)
 
         return np.array([dCda, dCdt]).T
 

@@ -130,7 +130,6 @@ class CMTSource(object):
         """
 
         origin_time = UTCDateTime(d["origin_time"][3:])
-        print(origin_time)
         pde_lat = d["pde_latitude"]
         pde_lon = d["pde_longitude"]
         pde_depth_in_m = d["pde_depth_in_m"]
