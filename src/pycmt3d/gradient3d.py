@@ -655,6 +655,12 @@ class Gradient3d(object):
                     * weights[counter]
                 counter += 1
 
+        fig = plt.figure()
+        plt.matshow(self.tapers)
+        plt.colorbar()
+        plt.savefig("/scratch/gpfs/lsawade/test.pdf")
+        plt.close(fig)
+
     def calculate_variance(self):
         """ Computes the variance reduction"""
         var_all = 0.0
