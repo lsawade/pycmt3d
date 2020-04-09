@@ -41,8 +41,8 @@ def calculate_energy_weighting(trwin, mode="window"):
 
 
 def setup_energy_weight(metas, data_container):
-    for meta, _trwin in zip(metas, data_container):
-        logger.debug("Trace: %s" % _trwin.obsd_id)
+    for _i, (meta, _trwin) in enumerate(zip(metas, data_container)):
+        logger.debug("%d, Trace: %s" % (_i, _trwin.obsd_id))
         we, ee = calculate_energy_weighting(_trwin, mode="window")
         meta.prov['wav_energy'] = we
         meta.prov['env_energy'] = ee
