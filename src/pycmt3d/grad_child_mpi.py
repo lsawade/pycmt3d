@@ -47,8 +47,7 @@ for _i, job in enumerate(d["jobs"][rank]):
                  nt=d["config"].nt, nls=d["config"].nls,
                  crit=d["config"].crit,
                  precond=d["config"].precond,
-                 reg=d["config"].reg,
-                 verbose=False)
+                 reg=d["config"].reg)
 
     G.gradient()
     results["dt"][_i] = G.dt
