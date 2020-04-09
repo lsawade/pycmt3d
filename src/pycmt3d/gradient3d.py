@@ -655,15 +655,6 @@ class Gradient3d(object):
                     * weights[counter]
                 counter += 1
 
-        fig = plt.figure(figsize=(1.25*10, 10))
-        ax = plt.gca()
-        matmat = ax.matshow(self.tapers)
-        plt.colorbar(matmat)
-        ax.set_aspect(self.npts/self.nwin)
-        # plt.savefig("/Users/lucassawade/test.pdf")
-        plt.savefig("/scratch/gpfs/lsawade/test.pdf")
-        plt.close(fig)
-
     def calculate_variance(self):
         """ Computes the variance reduction"""
         var_all = 0.0
