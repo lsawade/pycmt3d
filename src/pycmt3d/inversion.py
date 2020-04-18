@@ -65,7 +65,7 @@ class Inversion(object):
         # Statistics
         self.stats = None
 
-    def source_inversion(self):
+    def source_inversion(self, pregrid_stats_dir=None):
         """Uses the different classes to both invert for the parameters and
         grid_search."""
 
@@ -74,6 +74,9 @@ class Inversion(object):
                            self.cmt3d_config)
         self.cmt3d.source_inversion()
         self.cmt3d.compute_new_syn()
+        if pregrid_stats_dir is not None:
+            self.cmt3d.plot_stats_histogram(outputdir=pregrid_stats_dir,
+                                            figure_format="pdf")
 
         if type(self.mt_config) == Grid3dConfig:
             # Grid search for CMT shift and
@@ -262,6 +265,7 @@ class Inversion(object):
             suffix = "ZT"
         else:
             suffix = "no_constraint"
+
         outputfn = "%s.%dp_%s.stats.json" % (eventname, npar, suffix)
         outputfn = os.path.join(outputdir, outputfn)
         filename = outputfn

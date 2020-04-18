@@ -15,6 +15,7 @@ the scalar moment and timeshift.
 """
 
 from __future__ import print_function, division, absolute_import
+import os
 import sys
 import numpy as np
 from copy import deepcopy
@@ -36,6 +37,8 @@ from .util import construct_taper
 from .mpi_utils import broadcast_dict
 from .mpi_utils import get_result_dictionaries
 from .mpi_utils import split
+from . import plot_util
+
 
 plt.switch_backend('agg')
 
@@ -743,6 +746,32 @@ class Gradient3d(object):
             # starting at the same time(which is not the case since we
             # correct the starting time of new_synt)
             meta.prov["new_synt"]["tshift"] -= self.t00_best
+
+    def plot_stats_histogram(self, outputdir=".", figure_format="pdf"):
+        """
+        Plot inversion histogram, including histograms of tshift, cc,
+        power_l1, power_l2, cc_amp, chi values before and after the
+        inversion.
+        :param outputdir:
+        :return:
+        """
+        constr_str = "grad"
+        if not self.config.weight_config.normalize_by_energy:
+            prefix = "%s.%s" % (constr_str, "no_normener")
+        else:
+            prefix = "%s.%s" % (constr_str, "normener")
+
+        if not self.config.weight_config.normalize_by_category:
+            prefix += ".no_normcat"
+        else:
+            prefix += ".normcat"
+        figname = "%s.%s.stats.%s" % (self.cmtsource.eventname, prefix,
+                                      figure_format)
+        figname = os.path.join(outputdir, figname)
+
+        plot_stats = plot_util.PlotStats(self.data_container,
+                                         self.metas, figname)
+        plot_stats.plot_stats_histogram()
 
 
 class Gradient(object):
