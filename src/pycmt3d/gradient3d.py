@@ -17,7 +17,6 @@ the scalar moment and timeshift.
 from __future__ import print_function, division, absolute_import
 import os
 import sys
-import pprint
 import numpy as np
 from copy import deepcopy
 import time
@@ -626,7 +625,6 @@ class Gradient3d(object):
         if self.config.weight_data:
             weights = []
             for meta in self.metas:
-                print(meta.weights)
                 weights.extend(meta.weights)
             weights = np.array(weights)
         else:
@@ -668,12 +666,7 @@ class Gradient3d(object):
         for meta, trwin in zip(self.metas, self.data_container.trwins):
 
             obsd = trwin.datalist['obsd']
-
-            # Get trace
-            if self.config.use_new:
-                synt = trwin.datalist["old_synt"].copy()
-            else:
-                synt = trwin.datalist["synt"]
+            synt = trwin.datalist['synt']
 
             # calculate old variance metrics
             meta.prov["synt"] = \
@@ -689,10 +682,6 @@ class Gradient3d(object):
             var_all += np.sum(0.5 * meta.prov["synt"]["chi"] * meta.weights)
             var_all_new += np.sum(0.5 * meta.prov["new_synt"]["chi"]
                                   * meta.weights)
-            print("Synt")
-            pprint.pprint(meta.prov["synt"])
-            print("New Synt")
-            pprint.pprint(meta.prov["new_synt"])
 
         logger.info(
             "Total Variance Reduced from %e to %e ===== %f %%"
@@ -721,7 +710,7 @@ class Gradient3d(object):
         for attr in attrs:
             newval = self.m00_best * getattr(newcmt, attr)
             setattr(newcmt, attr, newval)
-        logger.info("\tMultiply scalar moment change by %f%%"
+        logger.info("\tMultiply scalar moment by %f%%"
                     % (self.m00_best * 100))
 
         self.new_cmtsource = newcmt
@@ -739,7 +728,8 @@ class Gradient3d(object):
                                      % (trwin, trwin.datalist.keys()))
                 else:
                     new_synt = trwin.datalist["new_synt"].copy()
-                    old_synt = trwin.datalist["new_synt"].copy()
+                    synt = trwin.datalist["new_synt"].copy()
+                    trwin.datalist["synt"] = synt
             else:
                 new_synt = trwin.datalist["synt"].copy()
 
@@ -747,7 +737,6 @@ class Gradient3d(object):
             timeshift_trace_pad(new_synt, self.t00_best)
             new_synt.data *= self.m00_best
             trwin.datalist["new_synt"] = new_synt
-            trwin.datalist["old_synt"] = old_synt
 
     def plot_stats_histogram(self, outputdir=".", figure_format="pdf"):
         """
@@ -771,8 +760,8 @@ class Gradient3d(object):
                                       figure_format)
         figname = os.path.join(outputdir, figname)
 
-        plot_util = PlotStats(self.data_container, self.metas, figname)
-        plot_util.plot_stats_histogram()
+        plots = plot_util.PlotStats(self.data_container, self.metas, figname)
+        plots.plot_stats_histogram()
 
 
 class Gradient(object):
@@ -934,8 +923,7 @@ class Gradient(object):
         vector.
         """
         if m is None:
-            self.ssynt = timeshift_mat(self.synt, self.m[1],
-                                                   self.delta)
+            self.ssynt = timeshift_mat(self.synt, self.m[1], self.delta)
         else:
             self.ssynt = m[0] * timeshift_mat(self.synt, m[1], self.delta)
 
@@ -1022,8 +1010,8 @@ class Gradient(object):
         """Takes in a set of data (needs to be same as original obsd data
         and computes the misfit between the input and observed data.
         """
-        return np.sum(self.tapers * (self.obsd - self.m[0] * self.ssynt) ** 2 * self.delta,
-                      axis=None)
+        return np.sum(self.tapers * self.delta
+                      * (self.obsd - self.m[0] * self.ssynt) ** 2, axis=None)
 
     def compute_residual(self):
         """Takes in a set of data (needs to be same as original obsd data

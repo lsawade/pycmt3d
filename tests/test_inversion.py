@@ -288,15 +288,14 @@ if __name__ == "__main__":
                                      )
 
     outdir = "/Users/lucassawade/inversion_test"
-    post = "/Users/lucassawade/inversion_test/postgrid"
+    pre = "/Users/lucassawade/inversion_test/pregrid"
 
     inv = Inversion(cmt, dcon, cmt3d_config, grad3d_config)
-    inv.source_inversion(pregrid_stats_dir=outdir)
+    inv.source_inversion(pregrid_stats_dir=pre)
     inv.write_summary_json(outdir)
     inv.plot_summary(outdir)
 
     inv.plot_new_synt_seismograms(outdir)
     inv.write_new_cmtfile(outdir)
 
-    inv.cmt3d.plot_stats_histogram(post, figure_format='pdf')
-    inv.cmt3d.plot_stats_histogram()
+    inv.G.plot_stats_histogram(outputdir=outdir)
