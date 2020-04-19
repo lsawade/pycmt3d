@@ -769,9 +769,8 @@ class Gradient3d(object):
                                       figure_format)
         figname = os.path.join(outputdir, figname)
 
-        plot_stats = plot_util.PlotStats(self.data_container,
-                                         self.metas, figname)
-        plot_stats.plot_stats_histogram()
+        plot_util = PlotStats(self.data_container, self.metas, figname)
+        plot_util.plot_stats_histogram()
 
 
 class Gradient(object):
@@ -933,7 +932,7 @@ class Gradient(object):
         vector.
         """
         if m is None:
-            self.ssynt = self.m[0] * timeshift_mat(self.synt, self.m[1],
+            self.ssynt = timeshift_mat(self.synt, self.m[1],
                                                    self.delta)
         else:
             self.ssynt = m[0] * timeshift_mat(self.synt, m[1], self.delta)
@@ -1021,14 +1020,14 @@ class Gradient(object):
         """Takes in a set of data (needs to be same as original obsd data
         and computes the misfit between the input and observed data.
         """
-        return np.sum(self.tapers * (self.obsd - self.ssynt) ** 2 * self.delta,
+        return np.sum(self.tapers * (self.obsd - self.m[0] * self.ssynt) ** 2 * self.delta,
                       axis=None)
 
     def compute_residual(self):
         """Takes in a set of data (needs to be same as original obsd data
         and computes the misfit between the input and observed data.
         """
-        return (self.obsd - self.ssynt)
+        return (self.obsd - self.m[0] * self.ssynt)
 
     @staticmethod
     def arraystr(array):
