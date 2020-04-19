@@ -17,6 +17,7 @@ the scalar moment and timeshift.
 from __future__ import print_function, division, absolute_import
 import os
 import sys
+import pprint
 import numpy as np
 from copy import deepcopy
 import time
@@ -31,7 +32,7 @@ from .data_container import MetaInfo
 from . import logger
 from .weight import Weight, setup_energy_weight
 from .measure import calculate_variance_on_trace
-from .util import timeshift_mat
+from .util import timeshift_mat, timeshift_trace_pad
 from .util import get_window_idx
 from .util import construct_taper
 from .mpi_utils import broadcast_dict
@@ -665,8 +666,14 @@ class Gradient3d(object):
 
         # calculate metrics for each trwin
         for meta, trwin in zip(self.metas, self.data_container.trwins):
+
             obsd = trwin.datalist['obsd']
-            synt = trwin.datalist['synt']
+
+            # Get trace
+            if self.config.use_new:
+                synt = trwin.datalist["old_synt"].copy()
+            else:
+                synt = trwin.datalist["synt"]
 
             # calculate old variance metrics
             meta.prov["synt"] = \
@@ -682,6 +689,10 @@ class Gradient3d(object):
             var_all += np.sum(0.5 * meta.prov["synt"]["chi"] * meta.weights)
             var_all_new += np.sum(0.5 * meta.prov["new_synt"]["chi"]
                                   * meta.weights)
+            print("Synt")
+            pprint.pprint(meta.prov["synt"])
+            print("New Synt")
+            pprint.pprint(meta.prov["new_synt"])
 
         logger.info(
             "Total Variance Reduced from %e to %e ===== %f %%"
@@ -728,24 +739,15 @@ class Gradient3d(object):
                                      % (trwin, trwin.datalist.keys()))
                 else:
                     new_synt = trwin.datalist["new_synt"].copy()
+                    old_synt = trwin.datalist["new_synt"].copy()
             else:
                 new_synt = trwin.datalist["synt"].copy()
 
             # Fix traces
-            new_synt.stats.starttime += self.t00_best
+            timeshift_trace_pad(new_synt, self.t00_best)
             new_synt.data *= self.m00_best
             trwin.datalist["new_synt"] = new_synt
-
-        for meta, trwin in zip(self.metas, self.data_container):
-            obsd = trwin.datalist["obsd"]
-            new_synt = trwin.datalist["new_synt"]
-            meta.prov["new_synt"] = \
-                calculate_variance_on_trace(obsd, new_synt, trwin.windows,
-                                            self.config.taper_type)
-            # because calculate_variance_on_trace assumes obsd and new_synt
-            # starting at the same time(which is not the case since we
-            # correct the starting time of new_synt)
-            meta.prov["new_synt"]["tshift"] -= self.t00_best
+            trwin.datalist["old_synt"] = old_synt
 
     def plot_stats_histogram(self, outputdir=".", figure_format="pdf"):
         """
