@@ -134,12 +134,6 @@ def precondition(B, g):
     # Preconditioning
     fac = 1 / np.array([B[0, 0], B[1, 1]])
     H = np.diag(fac)
-    # PB = Pinv @ B
-    # Pg = Pinv @ g
-    print("B", B)
-    print("H", H)
-    print("g", g)
-    print("Hg", - H @ g)
     return H, g
 
 
@@ -150,7 +144,6 @@ def damping(B, damping=0.01):
     :param damping: damping factor. Default 0.01
     :return:
     """
-
     return B + damping * np.trace(B) * np.eye(B.shape[0])
 
 
@@ -163,7 +156,6 @@ def reguralization(B):
 
 class Gradient3dConfig(object):
     def __init__(self, method="gn", weight_data=False, weight_config=None,
-                 use_new=False,
                  taper_type="tukey",
                  c1=1e-4, c2=0.9,
                  idt: float = 0.0, ia=1.,
@@ -182,8 +174,6 @@ class Gradient3dConfig(object):
                                          Defaults to False.
             weight_config ([type], optional): contains the weightdata
                                               configuration. Defaults to None.
-            use_new (bool, optional): Choice of whether to use synthetics from
-                                      a cmt3d inversion. Defaults to False.
             taper_type (str, optional): Taper for window selection.
                                         Defaults to "tukey".
             c1 (float, optional): Wolfe condition parameter. Defaults to 1e-4
@@ -260,10 +250,6 @@ class Gradient3dConfig(object):
         self.weight_config = weight_config
 
         self.taper_type = taper_type
-
-        # If the data_container contains new_synthetic data, the new
-        # synthetic data can be used for the gridsearch.
-        self.use_new = use_new
 
 
 class Gradient3d(object):
@@ -638,16 +624,7 @@ class Gradient3d(object):
 
         for _k, trwin in enumerate(self.data_container):
             self.obsd[_k, :] = trwin.datalist["obsd"].data
-
-            if self.config.use_new:
-                if "new_synt" not in trwin.datalist:
-                    raise ValueError("new synt is not in trwin(%s) "
-                                     "datalist: %s"
-                                     % (trwin, trwin.datalist.keys()))
-                else:
-                    self.synt[_k, :] = trwin.datalist["new_synt"].copy()
-            else:
-                self.synt[_k, :] = trwin.datalist["synt"].data
+            self.synt[_k, :] = trwin.datalist["synt"].data
 
             for _win_idx in range(trwin.windows.shape[0]):
                 istart, iend = get_window_idx(trwin.windows[_win_idx],
@@ -720,19 +697,7 @@ class Gradient3d(object):
         logger.info("Reconstruct new synthetic seismograms...")
 
         for trwin in self.data_container:
-
-            # Get trace
-            if self.config.use_new:
-                if "new_synt" not in trwin.datalist:
-                    raise ValueError("new synt is not in trwin(%s) "
-                                     "datalist: %s"
-                                     % (trwin, trwin.datalist.keys()))
-                else:
-                    new_synt = trwin.datalist["new_synt"].copy()
-                    synt = trwin.datalist["new_synt"].copy()
-                    trwin.datalist["synt"] = synt
-            else:
-                new_synt = trwin.datalist["synt"].copy()
+            new_synt = trwin.datalist["synt"].copy()
 
             # Fix traces
             timeshift_trace_pad(new_synt, self.t00_best)
@@ -763,6 +728,48 @@ class Gradient3d(object):
 
         plots = plot_util.PlotStats(self.data_container, self.metas, figname)
         plots.plot_stats_histogram()
+
+    def plot_new_synt_seismograms(self, outputdir, figure_format="pdf"):
+        """
+        Plot the new synthetic waveform
+        """
+        plot_util.plot_seismograms(self.data_container, outputdir,
+                                   self.cmtsource, figure_format=figure_format)
+
+    def write_new_syn(self, outputdir=".", file_format="sac"):
+        """
+        Write out the new synthetic waveform
+        """
+        file_format = file_format.lower()
+        logger.info("New synt output dir: %s" % outputdir)
+        if not os.path.exists(outputdir):
+            os.makedirs(outputdir)
+
+        if 'new_synt' not in self.data_container.trwins[0].datalist.keys():
+            raise ValueError("new synt not computed yet")
+
+        eventname = self.cmtsource.eventname
+        suffix = "grad"
+
+        if file_format == "sac":
+            self.data_container.write_new_synt_sac(outputdir=outputdir,
+                                                   suffix=suffix)
+        elif file_format == "asdf":
+            file_prefix = \
+                os.path.join(outputdir, "%s.%s" % (eventname, suffix))
+            self.data_container.write_new_synt_asdf(file_prefix=file_prefix)
+        else:
+            raise NotImplementedError("file_format(%s) not recognised!"
+                                      % file_format)
+
+    def write_new_cmtfile(self, outputdir="."):
+        """
+        Write new_cmtsource into a file
+        """
+        suffix = "grad"
+        outputfn = "%s.%s.inv" % (self.cmtsource.eventname, suffix)
+        cmtfile = os.path.join(outputdir, outputfn)
+        logger.info("New cmt file: %s" % cmtfile)
 
     def write_summary_json(self, outputdir=".", mode="global"):
         """This function uses all computed statistics and outputs a json

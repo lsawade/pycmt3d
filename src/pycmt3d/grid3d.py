@@ -47,7 +47,7 @@ class Grid3dConfig(object):
                  dt_over_delta=1, energy_inv=True,
                  energy_start=0.8, energy_end=1.2, denergy=0.1,
                  energy_keys=None, energy_misfit_coef=None,
-                 weight_data=False, weight_config=None, use_new=False,
+                 weight_data=False, weight_config=None,
                  taper_type="tukey", bootstrap=True, bootstrap_repeat=20,
                  bootstrap_subset_ratio=0.4):
 
@@ -88,10 +88,6 @@ class Grid3dConfig(object):
         self.weight_config = weight_config
 
         self.taper_type = taper_type
-
-        # If the data_container contains new_synthetic data, the new
-        # synthetic data can be used for the gridsearch.
-        self.use_new = use_new
 
 
 class Grid3d(object):
@@ -226,15 +222,7 @@ class Grid3d(object):
     def prepare_new_synthetic(self):
         logger.info("Reconstruct new synthetic seismograms...")
         for trwin in self.data_container:
-            if self.config.use_new:
-                if "new_synt" not in trwin.datalist:
-                    raise ValueError("new synt is not in trwin(%s) "
-                                     "datalist: %s"
-                                     % (trwin, trwin.datalist.keys()))
-                else:
-                    new_synt = trwin.datalist["new_synt"].copy()
-            else:
-                new_synt = trwin.datalist["synt"].copy()
+            new_synt = trwin.datalist["synt"].copy()
 
             if self.config.origin_time_inv:
                 new_synt.stats.starttime += self.t00_best
@@ -323,16 +311,7 @@ class Grid3d(object):
 
         for trwin in self.data_container:
             obsd = trwin.datalist["obsd"].copy()
-
-            if self.config.use_new:
-                if "new_synt" not in trwin.datalist:
-                    raise ValueError("new synt is not in trwin(%s) "
-                                     "datalist: %s"
-                                     % (trwin, trwin.datalist.keys()))
-                else:
-                    synt = trwin.datalist["new_synt"].copy()
-            else:
-                synt = trwin.datalist["synt"].copy()
+            synt = trwin.datalist["synt"].copy()
 
             # Using the updated timeshift
             timeshift_trace(synt, self.time_best)
@@ -361,16 +340,7 @@ class Grid3d(object):
 
         for trwin in self.data_container:
             obsd = trwin.datalist["obsd"].copy()
-
-            if self.config.use_new:
-                if "new_synt" not in trwin.datalist:
-                    raise ValueError("new synt is not in trwin(%s) "
-                                     "datalist: %s"
-                                     % (trwin, trwin.datalist.keys()))
-                else:
-                    synt = trwin.datalist["new_synt"].copy()
-            else:
-                synt = trwin.datalist["synt"].copy()
+            synt = trwin.datalist["synt"].copy()
 
             # Shift trace in time
             timeshift_trace(synt, t0)
@@ -392,16 +362,7 @@ class Grid3d(object):
         for k, trwin in enumerate(self.data_container):
             if subset[k] != 0:
                 obsd = trwin.datalist["obsd"]
-
-                if self.config.use_new:
-                    if "new_synt" not in trwin.datalist:
-                        raise ValueError("new synt is not in trwin(%s) "
-                                         "datalist: %s"
-                                         % (trwin, trwin.datalist.keys()))
-                    else:
-                        synt = trwin.datalist["new_synt"].copy()
-                else:
-                    synt = trwin.datalist["synt"].copy()
+                synt = trwin.datalist["synt"].copy()
 
                 # Shift trace in time
                 timeshift_trace(synt, t0)
@@ -470,7 +431,7 @@ class Grid3d(object):
                 weights = np.ones(len(self.data_container.nwindows))
 
         obsd, synt, delta, tapers = construct_matrices(
-            self.data_container, weights, self.config.use_new)
+            self.data_container, weights)
 
         # exit()
         N = nt00*nm00

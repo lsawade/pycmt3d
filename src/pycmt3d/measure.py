@@ -517,7 +517,7 @@ def calculate_waveform_misfit_on_trace(obsd, synt, win_time,
     return v1_array
 
 
-def construct_matrices(data_container, weights, use_new):
+def construct_matrices(data_container, weights):
     """Computes amplitude and cross correlation misfit for moment scaling
     as well as timeshift."""
 
@@ -534,16 +534,7 @@ def construct_matrices(data_container, weights, use_new):
 
     for _k, trwin in enumerate(data_container):
         obsd[_k, :] = trwin.datalist["obsd"].data
-
-        if use_new:
-            if "new_synt" not in trwin.datalist:
-                raise ValueError("new synt is not in trwin(%s) "
-                                 "datalist: %s"
-                                 % (trwin, trwin.datalist.keys()))
-            else:
-                synt[_k, :] = trwin.datalist["new_synt"].copy()
-        else:
-            synt[_k, :] = trwin.datalist["synt"].data
+        synt[_k, :] = trwin.datalist["synt"].data
 
         for _win_idx in range(trwin.windows.shape[0]):
             istart, iend = get_window_idx(trwin.windows[_win_idx],
@@ -553,9 +544,6 @@ def construct_matrices(data_container, weights, use_new):
                 construct_taper(iend - istart, taper_type='hann') \
                 * weights[counter]
             counter += 1
-    print("tapers:\n", np.where(tapers != 0))
-    print("obsd:\n", synt)
-    print("synt:\n", obsd)
 
     return obsd, synt, delta, tapers
 
