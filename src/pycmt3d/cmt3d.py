@@ -91,6 +91,9 @@ class Cmt3D(object):
         self.new_cmtsource_waveform = None
         self.new_cmtsource_envelope = None
 
+        # Create empty dictionary for the statistics.
+        self.stats = dict()
+
     @property
     def cmt_par(self):
         """
@@ -619,11 +622,8 @@ class Cmt3D(object):
         # Sort the metadata into categories (040_100.obsd.BHZ is a category eg)
         self.sort_metas()
 
-        # Create empty dictionary for the statistics.
-        self.stats = dict()
-
         # Get category names from the sorted meta dictionary
-        cat_names = sorted(self.data_container.metas_sort.keys())
+        cat_names = sorted(self.metas_sort.keys())
 
         # Loop over categories and compute statistics for the
         for irow, cat in enumerate(cat_names):
