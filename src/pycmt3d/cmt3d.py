@@ -14,7 +14,6 @@ import os
 import numpy as np
 from copy import deepcopy
 from collections import defaultdict
-
 from . import logger
 from .util import random_select, sum_matrix
 from .util import get_cmt_par, dump_json
@@ -599,10 +598,7 @@ class Cmt3D(object):
         key_map = defaultdict(set)
 
         # Get the computed meta information.
-        if self.G is None:
-            metas = self.cmt3d.metas
-        else:
-            metas = self.G.metas
+        metas = self.metas
 
         for trwin, meta in zip(self.data_container, metas):
             comp = trwin.channel
