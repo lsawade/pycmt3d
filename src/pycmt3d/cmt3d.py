@@ -13,6 +13,7 @@ from __future__ import (print_function, division, absolute_import)
 import os
 import numpy as np
 from copy import deepcopy
+from collections import defaultdict
 
 from . import logger
 from .util import random_select, sum_matrix
