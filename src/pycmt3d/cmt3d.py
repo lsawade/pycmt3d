@@ -25,6 +25,7 @@ from .weight import Weight, setup_energy_weight
 from .constant import NPARMAX
 from .solver import solver
 from .log_util import print_inversion_summary
+from .util import get_trwin_tag
 
 
 def generate_newcmtsource(oldcmt, new_cmt_par):
@@ -580,3 +581,130 @@ class Cmt3D(object):
         else:
             raise NotImplementedError("file_format(%s) not recognised!"
                                       % file_format)
+
+    def extract_metadata(self, cat_name, meta_varname):
+        data_old = []
+        data_new = []
+        cat_data = self.metas_sort[cat_name]
+        for meta in cat_data:
+            data_old.extend(meta.prov["synt"][meta_varname])
+            data_new.extend(meta.prov["new_synt"][meta_varname])
+
+        return data_old, data_new
+
+    def sort_metas(self):
+        """sort metas into different categories for future plotting """
+        metas_sort = defaultdict(list)
+        key_map = defaultdict(set)
+
+        # Get the computed meta information.
+        if self.G is None:
+            metas = self.cmt3d.metas
+        else:
+            metas = self.G.metas
+
+        for trwin, meta in zip(self.data_container, metas):
+            comp = trwin.channel
+            cat_name = get_trwin_tag(trwin)
+            key_map[comp].add(cat_name)
+            metas_sort[cat_name].append(meta)
+
+        self.metas_sort = metas_sort
+        self.key_map = key_map
+
+    def extract_stats(self):
+        """This function uses the info save in the metas to compute
+        the component means, stds, mins, and maxs."""
+
+        # Define list of statistics to get.
+        vtype_list = ["tshift", "cc", "power_l1", "power_l2", "cc_amp", "chi"]
+
+        # Sort the metadata into categories (040_100.obsd.BHZ is a category eg)
+        self.sort_metas()
+
+        # Create empty dictionary for the statistics.
+        self.stats = dict()
+
+        # Get category names from the sorted meta dictionary
+        cat_names = sorted(self.data_container.metas_sort.keys())
+
+        # Loop over categories and compute statistics for the
+        for irow, cat in enumerate(cat_names):
+
+            self.stats[cat] = self.get_stats_one_cat(cat, vtype_list)
+
+    def get_stats_one_cat(self, cat_name, vtype_list):
+        cat_dict = dict()
+        for var_idx, varname in enumerate(vtype_list):
+
+            # Collect the raw data from new and old synthetics.
+            data_before, data_after = \
+                self.extract_metadata(cat_name, varname)
+
+            # Compute before/after dictionary for the the varname (cc eg.)
+            cat_dict[varname] = {"before": data_before,
+                                 "after": data_after}
+
+        return cat_dict
+
+    def write_summary_json(self, outputdir=".", mode="global"):
+        """This function uses all computed statistics and outputs a json
+        file. Content will include the statistics table.
+        cost reduction in. """
+
+        eventname = self.cmtsource.eventname
+        npar = self.config.npar
+        if self.config.double_couple:
+            suffix = "ZT_DC"
+        elif self.config.zero_trace:
+            suffix = "ZT"
+        else:
+            suffix = "no_constraint"
+
+        outputfn = "%s.%dp_%s.stats.json" % (eventname, npar, suffix)
+        outputfn = os.path.join(outputdir, outputfn)
+        filename = outputfn
+
+        logger.info("Source inversion summary file: %s" % filename)
+
+        outdict = dict()
+
+        outdict["oldcmt"] = self.cmtsource.__dict__
+        outdict["newcmt"] = self.new_cmtsource.__dict__
+        outdict["sta_lat"] = np.array([window.latitude
+                                       for window
+                                       in self.data_container.trwins]).tolist()
+        outdict["sta_lon"] = np.array([window.longitude
+                                       for window
+                                       in self.data_container.trwins]).tolist()
+        outdict["nwindows"] = self.data_container.nwindows
+        outdict["nwin_on_trace"] = np.array([window.nwindows
+                                             for window
+                                             in self.data_container.trwins]
+                                            ).tolist()
+        outdict["bootstrap_mean"] = self.par_mean.tolist()
+        outdict["bootstrap_std"] = self.par_std.tolist()
+        outdict["nregions"] = self.config.weight_config.azi_bins
+
+        # Get stats
+        self.extract_stats()
+        outdict["stats"] = self.stats
+        outdict["var_reduction"] = self.var_reduction
+
+        outdict["config"] = {"envelope_coef": self.config.envelope_coef,
+                             "npar": self.config.npar,
+                             "zero_trace": self.config.zero_trace,
+                             "double_couple": self.config.double_couple,
+                             "station_correction":
+                             self.config.station_correction,
+                             "damping": self.config.damping,
+                             "weight_config":
+                             {"normalize_by_energy":
+                              self.config.weight_config
+                              .normalize_by_energy,
+                              "normalize_by_category":
+                              self.config.weight_config
+                              .normalize_by_category}}
+        outdict["mode"] = mode
+
+        dump_json(outdict, filename)

@@ -798,7 +798,7 @@ class DataContainer(Sequence):
 
     def _sort_new_synt(self):
         """
-        sort the new synthetic data to to solve reduante output
+        ort the new synthetic data to to solve redundant output
         """
         new_synt_dict = defaultdict(list)
         for trwin in self.trwins:
