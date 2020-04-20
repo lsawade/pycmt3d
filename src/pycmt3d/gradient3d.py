@@ -285,6 +285,7 @@ class Gradient3d(object):
         self.chi_list = None
 
         # misfit reduction
+        self.stats = dict()
         self.var_all = None
         self.var_all_new = None
         self.var_reduction = None
@@ -771,25 +772,77 @@ class Gradient3d(object):
         cmtfile = os.path.join(outputdir, outputfn)
         logger.info("New cmt file: %s" % cmtfile)
 
+    def extract_metadata(self, cat_name, meta_varname):
+        data_old = []
+        data_new = []
+        cat_data = self.metas_sort[cat_name]
+        for meta in cat_data:
+            data_old.extend(meta.prov["synt"][meta_varname])
+            data_new.extend(meta.prov["new_synt"][meta_varname])
+
+        return data_old, data_new
+
+    def sort_metas(self):
+        """sort metas into different categories for future plotting """
+        metas_sort = defaultdict(list)
+        key_map = defaultdict(set)
+
+        # Get the computed meta information.
+        metas = self.metas
+
+        for trwin, meta in zip(self.data_container, metas):
+            comp = trwin.channel
+            cat_name = get_trwin_tag(trwin)
+            key_map[comp].add(cat_name)
+            metas_sort[cat_name].append(meta)
+
+        self.metas_sort = metas_sort
+        self.key_map = key_map
+
+    def extract_stats(self):
+        """This function uses the info save in the metas to compute
+        the component means, stds, mins, and maxs."""
+
+        # Define list of statistics to get.
+        vtype_list = ["tshift", "cc", "power_l1", "power_l2", "cc_amp", "chi"]
+
+        # Sort the metadata into categories (040_100.obsd.BHZ is a category eg)
+        self.sort_metas()
+
+        # Get category names from the sorted meta dictionary
+        cat_names = sorted(self.metas_sort.keys())
+
+        # Loop over categories and compute statistics for the
+        for irow, cat in enumerate(cat_names):
+
+            self.stats[cat] = self.get_stats_one_cat(cat, vtype_list)
+
+    def get_stats_one_cat(self, cat_name, vtype_list):
+        cat_dict = dict()
+        for var_idx, varname in enumerate(vtype_list):
+
+            # Collect the raw data from new and old synthetics.
+            data_before, data_after = \
+                self.extract_metadata(cat_name, varname)
+
+            # Compute before/after dictionary for the the varname (cc eg.)
+            cat_dict[varname] = {"before": data_before,
+                                 "after": data_after}
+
+        return cat_dict
+
+
     def write_summary_json(self, outputdir=".", mode="global"):
         """This function uses all computed statistics and outputs a json
         file. Content will include the statistics table.
         cost reduction in. """
 
         eventname = self.cmtsource.eventname
-        npar = self.cmt3d_config.npar
-        if self.cmt3d_config.double_couple:
-            suffix = "ZT_DC"
-        elif self.cmt3d_config.zero_trace:
-            suffix = "ZT"
-        else:
-            suffix = "no_constraint"
-
-        outputfn = "%s.grad.%dp_%s.stats.json" % (eventname, npar, suffix)
+        outputfn = "%s.grad.stats.json" % (eventname)
         outputfn = os.path.join(outputdir, outputfn)
         filename = outputfn
 
-        logger.info("Source inversion summary file: %s" % filename)
+        logger.info("Grid search summary file: %s" % filename)
 
         outdict = dict()
 
@@ -807,38 +860,45 @@ class Gradient3d(object):
                                              in self.data_container.trwins]
                                             ).tolist()
 
-        outdict["bootstrap_mean"] = self.cmt3d.par_mean.tolist()
-        outdict["bootstrap_std"] = self.cmt3d.par_std.tolist()
-
-        outdict["nregions"] = self.cmt3d_config.weight_config.azi_bins
-
+        # Compute Stats
+        self.extract_stats()
         outdict["stats"] = self.stats
 
-        if self.G is not None:
-            outdict["var_reduction"] = self.G.var_reduction
+        outdict["G"] = {
+            "tshift": self.t00_best,
+            "ascale": self.m00_best,
+            "bootstrap_mean": self.bootstrap_mean.tolist(),
+            "bootstrap_std": self.bootstrap_std.tolist(),
+            "chi_list": self.chi_list,
+            "meancost_array": self.meancost_array.tolist(),
+            "stdcost_array": self.stdcost_array.tolist(),
+            "maxcost_array": self.maxcost_array.tolist(),
+            "mincost_array": self.mincost_array.tolist()
+        }
 
-            outdict["G"] = {"method": self.G.config.method,
-                            "tshift": self.G.t00_best,
-                            "ascale": self.G.m00_best,
-                            "bootstrap_mean": self.G.bootstrap_mean.tolist(),
-                            "bootstrap_std": self.G.bootstrap_std.tolist(),
-                            "chi_list": self.G.chi_list,
-                            "meancost_array": self.G.meancost_array.tolist(),
-                            "stdcost_array": self.G.stdcost_array.tolist(),
-                            "maxcost_array": self.G.maxcost_array.tolist(),
-                            "mincost_array": self.G.mincost_array.tolist()}
-        else:
-            outdict["var_reduction"] = self.cmt3d.var_reduction
-            outdict["G"] = None
-
+        outdict["var_reduction"] = self.var_reduction
         outdict["config"] = {
-            # Other things from the gradient config
-            # Like wolfe conditions etc.
+            "c1": self.config.c1,
+            "c2": self.config.c2,
+            "idt": self.config.idt,
+            "ia": self.config.ia,
+            "nt": self.config.nt,
+            "nls":  self.config.nls,
+            "crit":  self.config.crit,
+            "reg":  self.config.reg,
+            "method": self.config.method,
+            "precond": self.config.precond,
+            "damping":  self.config.damping,
+            "taper_type": self.config.taper_type,
+            "bootstrap":  self.config.bootstrap,
+            "bootstrap_repeat":  self.config.bootstrap_repeat,
+            "bootstrap_subset_ratio":  self.config.bootstrap_subset_ratio,
             "weight_config":
                 {"normalize_by_energy":
                  self.config.weight_config.normalize_by_energy,
                  "normalize_by_category":
-                 self.config.weight_config.normalize_by_category}}
+                 self.config.weight_config.normalize_by_category}
+        }
         outdict["mode"] = mode
 
         dump_json(outdict, filename)
