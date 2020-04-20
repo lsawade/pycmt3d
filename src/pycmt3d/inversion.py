@@ -28,7 +28,6 @@ from .gradient3d import Gradient3d
 from .data_container import DataContainer
 from .plot_util import PlotInvSummary
 from .plot_util import plot_seismograms
-from .util import dump_json
 from .util import get_trwin_tag
 from collections import defaultdict
 
@@ -251,5 +250,3 @@ class Inversion(object):
 
         self.metas_sort = metas_sort
         self.key_map = key_map
-
-

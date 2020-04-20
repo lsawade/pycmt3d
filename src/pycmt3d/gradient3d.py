@@ -34,6 +34,7 @@ from .measure import calculate_variance_on_trace
 from .util import timeshift_mat, timeshift_trace_pad
 from .util import get_window_idx
 from .util import construct_taper
+from .util import dump_json
 from .mpi_utils import broadcast_dict
 from .mpi_utils import get_result_dictionaries
 from .mpi_utils import split
@@ -823,25 +824,17 @@ class Gradient3d(object):
             outdict["var_reduction"] = self.cmt3d.var_reduction
             outdict["G"] = None
 
-        outdict["config"] = {"envelope_coef": self.cmt3d_config.envelope_coef,
-                             "npar": self.cmt3d_config.npar,
-                             "zero_trace": self.cmt3d_config.zero_trace,
-                             "double_couple": self.cmt3d_config.double_couple,
-                             "station_correction":
-                                 self.cmt3d_config.station_correction,
-                             "damping": self.cmt3d.config.damping,
-                             "weight_config":
-                                 {"normalize_by_energy":
-                                      self.cmt3d_config.weight_config
-                                          .normalize_by_energy,
-                                  "normalize_by_category":
-                                      self.cmt3d_config.weight_config
-                                          .normalize_by_category}}
+        outdict["config"] = {
+            # Other things from the gradient config
+            # Like wolfe conditions etc.
+            "weight_config":
+                {"normalize_by_energy":
+                 self.config.weight_config.normalize_by_energy,
+                 "normalize_by_category":
+                 self.config.weight_config.normalize_by_category}}
         outdict["mode"] = mode
 
         dump_json(outdict, filename)
-
-
 
 
 class Gradient(object):
