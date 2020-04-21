@@ -98,8 +98,7 @@ def test_inversion(cmtsource, tmpdir):
                                  denergy=0.1,
                                  energy_keys=energy_keys,
                                  energy_misfit_coef=[0.25, 0.25, 0.25, 0.25],
-                                 weight_data=True, weight_config=weight_config,
-                                 use_new=True)
+                                 weight_data=True, weight_config=weight_config)
 
     inv = Inversion(cmtsource, dcon_two, cmt3d_config, grid3d_config)
     inv.source_inversion()
@@ -147,7 +146,6 @@ def test_inversion_grad(cmtsource, tmpdir):
 
     grad3d_config = Gradient3dConfig(method="gn", weight_data=True,
                                      weight_config=weight_config,
-                                     use_new=True,
                                      taper_type="tukey",
                                      c1=1e-4, c2=0.9,
                                      idt=0.0, ia=1.,
@@ -182,7 +180,6 @@ def test_inversion_grad_no_mpi(cmtsource, tmpdir):
 
     grad3d_config = Gradient3dConfig(method="gn", weight_data=True,
                                      weight_config=weight_config,
-                                     use_new=True,
                                      taper_type="tukey",
                                      c1=1e-4, c2=0.9,
                                      idt=0.0, ia=1.,
@@ -217,7 +214,6 @@ def test_inversion_grad_serial(cmtsource, tmpdir):
 
     grad3d_config = Gradient3dConfig(method="gn", weight_data=True,
                                      weight_config=weight_config,
-                                     use_new=True,
                                      taper_type="tukey",
                                      c1=1e-4, c2=0.9,
                                      idt=0.0, ia=1.,
@@ -270,12 +266,10 @@ if __name__ == "__main__":
                                  energy_misfit_coef=[0.25, 0.25,
                                                      0.25, 0.25],
                                  weight_data=True,
-                                 weight_config=weight_config,
-                                 use_new=True)
+                                 weight_config=weight_config)
 
     grad3d_config = Gradient3dConfig(method="gn", weight_data=True,
                                      weight_config=weight_config,
-                                     use_new=True,
                                      taper_type="tukey",
                                      c1=1e-4, c2=0.9,
                                      idt=0.0, ia=1.,
