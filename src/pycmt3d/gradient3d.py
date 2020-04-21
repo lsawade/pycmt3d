@@ -24,6 +24,8 @@ import psutil
 from joblib import delayed
 from joblib import Parallel
 import matplotlib.pyplot as plt
+from collections import defaultdict
+
 # Internal imports
 from .source import CMTSource
 from .data_container import DataContainer
@@ -33,6 +35,7 @@ from .weight import Weight, setup_energy_weight
 from .measure import calculate_variance_on_trace
 from .util import timeshift_mat, timeshift_trace_pad
 from .util import get_window_idx
+from .util import get_trwin_tag
 from .util import construct_taper
 from .util import dump_json
 from .mpi_utils import broadcast_dict
@@ -830,7 +833,6 @@ class Gradient3d(object):
                                  "after": data_after}
 
         return cat_dict
-
 
     def write_summary_json(self, outputdir=".", mode="global"):
         """This function uses all computed statistics and outputs a json
