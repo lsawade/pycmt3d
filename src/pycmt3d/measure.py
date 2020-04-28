@@ -517,11 +517,21 @@ def calculate_waveform_misfit_on_trace(obsd, synt, win_time,
     return v1_array
 
 
+def pad(a, length):
+    arr = np.zeros(length)
+    arr[:len(a)] = a
+    return arr
+
+
 def construct_matrices(data_container, weights):
     """Computes amplitude and cross correlation misfit for moment scaling
     as well as timeshift."""
 
-    npts = data_container[0].datalist['obsd'].stats.npts
+    npts_list = []
+    for trwin in data_container.trwins:
+        npts_list.append(trwin.datalist['obsd'].stats.npts)
+
+    npts = np.max(npts_list)
     delta = data_container[0].datalist['obsd'].stats.delta
     nwin = len(data_container.trwins)
 
@@ -533,8 +543,9 @@ def construct_matrices(data_container, weights):
     counter = 0
 
     for _k, trwin in enumerate(data_container):
-        obsd[_k, :] = trwin.datalist["obsd"].data
-        synt[_k, :] = trwin.datalist["synt"].data
+
+        obsd[_k, :] = pad(trwin.datalist["obsd"].data, npts)
+        synt[_k, :] = pad(trwin.datalist["synt"].data, npts)
 
         for _win_idx in range(trwin.windows.shape[0]):
             istart, iend = get_window_idx(trwin.windows[_win_idx],
