@@ -569,7 +569,7 @@ class Cmt3D(object):
             self.data_container.write_new_synt_sac(outputdir=outputdir)
         elif file_format == "asdf":
             file_prefix = \
-                os.path.join(outputdir)
+                os.path.join(outputdir, "new")
             self.data_container.write_new_synt_asdf(file_prefix=file_prefix)
         else:
             raise NotImplementedError("file_format(%s) not recognised!"
