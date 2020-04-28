@@ -565,21 +565,11 @@ class Cmt3D(object):
         if 'new_synt' not in self.data_container.trwins[0].datalist.keys():
             raise ValueError("new synt not computed yet")
 
-        eventname = self.cmtsource.eventname
-        if self.config.double_couple:
-            constr_str = "ZT_DC"
-        elif self.config.zero_trace:
-            constr_str = "ZT"
-        else:
-            constr_str = "no_constr"
-        suffix = "%dp_%s" % (self.config.npar, constr_str)
-
         if file_format == "sac":
-            self.data_container.write_new_synt_sac(outputdir=outputdir,
-                                                   suffix=suffix)
+            self.data_container.write_new_synt_sac(outputdir=outputdir)
         elif file_format == "asdf":
             file_prefix = \
-                os.path.join(outputdir, "%s.%s" % (eventname, suffix))
+                os.path.join(outputdir)
             self.data_container.write_new_synt_asdf(file_prefix=file_prefix)
         else:
             raise NotImplementedError("file_format(%s) not recognised!"
