@@ -1110,12 +1110,12 @@ class Gradient(object):
         """Gauss Newton approach with JtJ delta m.""""""Computes the Gauss Newton approximate Hessian.
         """
 
-        dsda = - self.ssynt
-        dsddt = self.a * np.gradient(self.ssynt, self.delta, axis=-1)
+        dsda = - self.shifted
+        dsddt = self.a * np.gradient(self.shifted, self.delta, axis=-1)
 
-        J11 = np.sum(dsda ** 2 * self.tapers * self.delta)
-        J22 = np.sum(dsddt ** 2 * self.tapers * self.delta)
-        J21 = np.sum(dsda * dsddt * self.tapers * self.delta)
+        J11 = np.sum(dsda ** 2 * self.tapers)
+        J22 = np.sum(dsddt ** 2 * self.tapers)
+        J21 = np.sum(dsda * dsddt * self.tapers)
 
         return np.array([[J11, J21], [J21, J22]])
 
@@ -1126,9 +1126,9 @@ class Gradient(object):
 
         dsdt = np.gradient(self.shifted, self.delta, axis=-1)
 
-        dCdt = - np.sum(self.res * self.delta * self.a * dsdt * self.tapers)
+        dCdt = np.sum(self.res * self.a * dsdt * self.tapers)
 
-        dCda = - np.sum(self.res * self.delta * self.shifted * self.tapers)
+        dCda = - np.sum(self.res * self.shifted * self.tapers)
 
         return np.array([dCda, dCdt]).T
 
@@ -1143,14 +1143,14 @@ class Gradient(object):
 
         d2sdt2 = np.gradient(dsdt, self.delta, axis=-1)
 
-        d2Cda2 = np.sum(self.shifted ** 2 * self.delta * self.tapers)
+        d2Cda2 = np.sum(self.shifted ** 2 * self.tapers)
 
         d2Cdt2 = np.sum(((dsdt * self.a) ** 2
-                         - d2sdt2 * self.res * self.a) * self.delta
+                         - d2sdt2 * self.res * self.a)
                         * self.tapers)
 
         d2Cdadt = np.sum((dsdt * (self.res - self.a * self.shifted)
-                          * self.delta * self.tapers))
+                         * self.tapers))
 
         return np.array([[d2Cda2, d2Cdadt],
                          [d2Cdadt, d2Cdt2]])
@@ -1159,7 +1159,7 @@ class Gradient(object):
         """Takes in a set of data (needs to be same as original obsd data
         and computes the misfit between the input and observed data.
         """
-        return 0.5 * np.sum(self.tapers * self.delta
+        return np.sum(self.tapers
                             * (self.obsd - self.ssynt) ** 2,
                              axis=None)
 
