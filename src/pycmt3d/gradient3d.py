@@ -493,8 +493,7 @@ class Gradient3d(object):
             # sys.exit()
             bootstrap_cost_len = []
             counter = 0
-            import pprint
-            pprint.pprint(list_of_result_dicts)
+
             for _i, result in enumerate(list_of_result_dicts):
                 for _j, clen in enumerate(result["cost_len"]):
                     if clen != 9999:
@@ -511,7 +510,7 @@ class Gradient3d(object):
             self.bootstrap_std = np.array([np.std(bootstrap_m),
                                            np.std(bootstrap_t)])
 
-            print(bootstrap_cost_lists)
+
             self.cost_array = np.array(bootstrap_cost_lists)[:, :maxlen]
             for _i, (row, clen) in enumerate(zip(self.cost_array,
                                                  bootstrap_cost_len)):
