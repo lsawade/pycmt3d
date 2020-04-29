@@ -951,30 +951,30 @@ class Gradient(object):
         self.a_list = [self.a]
 
         # Compute residual and cost function
-        self.res = self.compute_residual()
-        self.chi0 = self.compute_misfit()
+        self.m = np.array([self.a, self.dt])
+        self.m_list = [self.m]
+        self.res = self.compute_residual(self.m)
+        self.chi0 = self.compute_misfit(self.m)
         self.chi = self.chi0 * 1.
         self.chip = self.chi0 * 1.
         self.cost_list = [0] * self.nt
         self.cost_list[0] = 1
         self.crit = crit
-        self.m = np.array([self.a, self.dt])
-        self.m_list = [self.m]
 
     def gradient(self):
 
         if self.precond:
             logger.info("Preconditioner not set...")
 
-        while self.chi / self.chi0 > self.crit and self.it <= self.nt:
+        while self.chi / self.chi0 > self.crit and self.it < self.nt:
 
             logger.debug("Iter: %3d -- C=%4f -- dt=%4f -- A=%4f"
                          % (self.it, self.chi / self.chi0,
                             self.dt, self.a))
 
             # Compute Analytical hessian using Newton's method
-            self.B = self.compute_hessian()
-            self.g = self.compute_gradient()
+            self.B = self.compute_hessian(self.m)
+            self.g = self.compute_gradient(self.m)
 
             if self.damping is not None:
                 logger.debug("Damping:")
@@ -1004,10 +1004,10 @@ class Gradient(object):
             self.line_search()
 
             self.m_list.append(self.m)
-            self.forward()
+            self.forward(self.m)
 
-            self.res = self.compute_residual()
-            self.chi = self.compute_misfit()
+            self.res = self.compute_residual(self.m)
+            self.chi = self.compute_misfit(self.m)
 
             self.dt = self.m[1]
             self.a = self.m[0]
@@ -1042,9 +1042,9 @@ class Gradient(object):
             mnew = self.m + alpha * self.dm
 
             self.forward(mnew)
-            self.res = self.compute_residual(m=mnew)
-            gnew = self.compute_gradient(m=mnew)
-            fcost_new = self.compute_misfit(m=mnew)
+            self.res = self.compute_residual(mnew)
+            gnew = self.compute_gradient(mnew)
+            fcost_new = self.compute_misfit(mnew)
 
             # Compute q
             qnew = gnew @ self.dm
@@ -1064,122 +1064,108 @@ class Gradient(object):
         if not good:
             self.chi = fcost_new
 
-    def forward(self, m=None):
+    def forward(self, m):
         """Computes the forward data using the most recent model
         vector.
         """
-        if m is None:
-            self.ssynt = timeshift_mat(self.synt, self.m[1], self.delta)
-        else:
-            self.ssynt = m[0] * timeshift_mat(self.synt, m[1], self.delta)
+        return m[0] * self.shift(m[1])
 
-    def compute_hessian(self):
+    def shift(self, dt):
+        """Shifts the trace."""
+        return timeshift_mat(self.synt, dt, self.delta)
+
+    def compute_hessian(self, m):
         """Computes Hessian depending on the method chosen.
         """
 
         if self.method == "n":
-            return self.compute_B()
+            return self.compute_B(m)
         else:
-            return self.compute_JJ()
+            return self.compute_JJ(m)
 
-    def compute_gradient(self, m=None):
+    def compute_gradient(self, m):
         """Computes Hessian depending on the method chosen.
         """
 
         if self.method == "gn":
-            return self.compute_b()
+            return self.compute_b(m)
         else:
             return self.compute_g(m)
 
-    def compute_b(self):
+    def compute_b(self, m):
         """Computes the Jr = b RHS of the Gauss Newton method.
         """
 
         # Derivatives of the data with respect to model parameters
-        dsda = - self.ssynt
-        dsddt = self.a * np.gradient(self.ssynt, self.delta, axis=-1)
+        dsda = - self.shift(m[1])
+        dsddt = m[0] * np.gradient(self.shift(m[1]), self.delta, axis=-1)
 
         return np.array([np.sum(self.res * dsda * self.tapers),
                          np.sum(self.res * dsddt * self.tapers)])
 
-    def compute_JJ(self):
+    def compute_JJ(self, m):
         """Gauss Newton approach with JtJ delta m.""""""Computes the Gauss Newton approximate Hessian.
         """
 
-        dsda = - self.ssynt
-        dsddt = self.a * np.gradient(self.ssynt, self.delta, axis=-1)
+        dsda = - self.forward(m)
+        dsddt = m[0] * np.gradient(self.shift(m[1]), self.delta, axis=-1)
 
-        J11 = np.sum(dsda ** 2 * self.tapers)
-        J22 = np.sum(dsddt ** 2 * self.tapers)
-        J21 = np.sum(dsda * dsddt * self.tapers)
+        J11 = np.sum(dsda ** 2 * self.tapers * self.delta)
+        J22 = np.sum(dsddt ** 2 * self.tapers * self.delta)
+        J21 = np.sum(dsda * dsddt * self.tapers * self.delta)
 
         return np.array([[J11, J21], [J21, J22]])
 
-    def compute_g(self, m=None):
+    def compute_g(self, m):
         """Computing the analytical gradient with respect to the model parameters
         a and t0.
         """
-        if m is None:
-            a = self.a
-        else:
-            a = m[0]
 
-        dsdt = np.gradient(self.ssynt, self.delta, axis=-1)
+        dsdt = np.gradient(self.shift(m[1]), self.delta, axis=-1)
 
-        # d2sdt2 = np.gradient(dsdt, self.delta, axis=-1)
+        dCdt = - np.sum(self.res * self.delta * m[0] * dsdt)
 
-        dCdt = np.sum(self.res * self.delta * a * dsdt)
-
-        dCda = - np.sum(self.res * self.delta * self.ssynt)
+        dCda = - np.sum(self.res * self.delta * self.shift(m[1]))
 
         return np.array([dCda, dCdt]).T
 
-    def compute_B(self):
+    def compute_B(self, m):
         """Computes analytical Hessian.
 
         Returns:
             nd.array: 2x2
         """
 
-        dsdt = np.gradient(self.ssynt, self.delta, axis=-1)
+        dsdt = np.gradient(self.shift(m[1]), self.delta, axis=-1)
 
         d2sdt2 = np.gradient(dsdt, self.delta, axis=-1)
 
-        d2Cda2 = np.sum(self.ssynt ** 2 * self.delta * self.tapers)
+        d2Cda2 = np.sum(self.shift(m[1]) ** 2 * self.delta * self.tapers)
 
         d2Cdt2 = np.sum(((dsdt * self.a) ** 2
-                         - d2sdt2 * self.res * self.a) * self.delta
+                         - d2sdt2 * self.res * m[0]) * self.delta
                         * self.tapers)
 
-        d2Cdadt = np.sum((dsdt * (self.res - self.a * self.ssynt))
+        d2Cdadt = np.sum((dsdt * (self.res - m[0] * self.shift(m[1])))
                          * self.delta * self.tapers)
 
         return np.array([[d2Cda2, d2Cdadt],
                          [d2Cdadt, d2Cdt2]])
 
-    def compute_misfit(self, m=None):
+    def compute_misfit(self, m):
         """Takes in a set of data (needs to be same as original obsd data
         and computes the misfit between the input and observed data.
         """
-        if m is None:
-            a = self.a
-        else:
-            a = m[0]
-
         return 0.5 * np.sum(self.tapers * self.delta
-                            * (self.obsd - a * self.ssynt) ** 2,
+                            * (self.obsd - self.forward(m)) ** 2,
                             axis=None)
 
-    def compute_residual(self, m=None):
+    def compute_residual(self, m):
         """Takes in a set of data (needs to be same as original obsd data
         and computes the misfit between the input and observed data.
         """
-        if m is None:
-            a = self.a
-        else:
-            a = m[0]
 
-        return (self.obsd - a * self.ssynt)
+        return (self.obsd - self.forward(m))
 
     @staticmethod
     def arraystr(array):
