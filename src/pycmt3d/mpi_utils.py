@@ -182,8 +182,9 @@ def get_result_dictionaries(sample_d, comm, size):
     list_of_dicts = []
     splitter = b'\x00q(tq)bu.'
     bytestrings = d_strings.split(splitter)
-
+    print("Bytelen:", len(bytestrings))
     for string in bytestrings[:-1]:
+        print("hello")
         single_dict = pickle.loads(string + splitter)
         print("single dict:", single_dict)
         list_of_dicts.append(single_dict)
