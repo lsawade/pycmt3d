@@ -1042,9 +1042,9 @@ class Gradient(object):
             mnew = self.m + alpha * self.dm
 
             self.forward(mnew)
-            self.res = self.compute_residual()
-            gnew = self.compute_gradient()
-            fcost_new = self.compute_misfit()
+            self.res = self.compute_residual(m=mnew)
+            gnew = self.compute_gradient(m=mnew)
+            fcost_new = self.compute_misfit(m=mnew)
 
             # Compute q
             qnew = gnew @ self.dm
@@ -1082,14 +1082,14 @@ class Gradient(object):
         else:
             return self.compute_JJ()
 
-    def compute_gradient(self):
+    def compute_gradient(self, m=None):
         """Computes Hessian depending on the method chosen.
         """
 
         if self.method == "gn":
             return self.compute_b()
         else:
-            return self.compute_g()
+            return self.compute_g(m)
 
     def compute_b(self):
         """Computes the Jr = b RHS of the Gauss Newton method.
@@ -1115,15 +1115,20 @@ class Gradient(object):
 
         return np.array([[J11, J21], [J21, J22]])
 
-    def compute_g(self):
+    def compute_g(self, m=None):
         """Computing the analytical gradient with respect to the model parameters
         a and t0.
         """
+        if m is None:
+            a = self.a
+        else:
+            a = m[0]
+
         dsdt = np.gradient(self.ssynt, self.delta, axis=-1)
 
         # d2sdt2 = np.gradient(dsdt, self.delta, axis=-1)
 
-        dCdt = np.sum(self.res * self.delta * self.a * dsdt)
+        dCdt = np.sum(self.res * self.delta * a * dsdt)
 
         dCda = - np.sum(self.res * self.delta * self.ssynt)
 
@@ -1152,19 +1157,29 @@ class Gradient(object):
         return np.array([[d2Cda2, d2Cdadt],
                          [d2Cdadt, d2Cdt2]])
 
-    def compute_misfit(self):
+    def compute_misfit(self, m=None):
         """Takes in a set of data (needs to be same as original obsd data
         and computes the misfit between the input and observed data.
         """
+        if m is None:
+            a = self.a
+        else:
+            a = m[0]
+
         return 0.5 * np.sum(self.tapers * self.delta
-                            * (self.obsd - self.m[0] * self.ssynt) ** 2,
+                            * (self.obsd - a * self.ssynt) ** 2,
                             axis=None)
 
-    def compute_residual(self):
+    def compute_residual(self, m=None):
         """Takes in a set of data (needs to be same as original obsd data
         and computes the misfit between the input and observed data.
         """
-        return (self.obsd - self.m[0] * self.ssynt)
+        if m is None:
+            a = self.a
+        else:
+            a = m[0]
+
+        return (self.obsd - a * self.ssynt)
 
     @staticmethod
     def arraystr(array):
