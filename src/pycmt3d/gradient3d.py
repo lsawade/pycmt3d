@@ -32,7 +32,7 @@ from .data_container import DataContainer
 from .data_container import MetaInfo
 from . import logger
 from .weight import Weight, setup_energy_weight
-from .measure import calculate_variance_on_trace
+from .measure import calculate_variance_on_trace, pad
 from .util import timeshift_mat, timeshift_trace_pad
 from .util import get_window_idx
 from .util import get_trwin_tag
@@ -603,7 +603,11 @@ class Gradient3d(object):
         as well as timeshift.
         """
 
-        self.npts = self.data_container[0].datalist['obsd'].stats.npts
+        npts_list = []
+        for trwin in self.data_container.trwins:
+            npts_list.append(trwin.datalist['obsd'].stats.npts)
+
+        self.npts = np.max(npts_list)
         self.delta = self.data_container[0].datalist['obsd'].stats.delta
         self.nwin = len(self.data_container.trwins)
 
@@ -627,8 +631,8 @@ class Gradient3d(object):
         counter = 0
 
         for _k, trwin in enumerate(self.data_container):
-            self.obsd[_k, :] = trwin.datalist["obsd"].data
-            self.synt[_k, :] = trwin.datalist["synt"].data
+            self.obsd[_k, :] = pad(trwin.datalist["obsd"].data, self.npts)
+            self.synt[_k, :] = pad(trwin.datalist["synt"].data, self.npts)
 
             for _win_idx in range(trwin.windows.shape[0]):
                 istart, iend = get_window_idx(trwin.windows[_win_idx],
