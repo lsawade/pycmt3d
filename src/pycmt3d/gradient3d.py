@@ -493,6 +493,8 @@ class Gradient3d(object):
             # sys.exit()
             bootstrap_cost_len = []
             counter = 0
+            import pprint
+            pprint.pprint(list_of_result_dicts)
             for _i, result in enumerate(list_of_result_dicts):
                 for _j, clen in enumerate(result["cost_len"]):
                     if clen != 9999:
