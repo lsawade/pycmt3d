@@ -278,7 +278,7 @@ if __name__ == "__main__":
                                      precond=False, reg=False,
                                      bootstrap=True, bootstrap_repeat=20,
                                      bootstrap_subset_ratio=0.4,
-                                     parallel=True, mpi_env=False
+                                     parallel=True, mpi_env=True
                                      )
 
     outdir = "/Users/lucassawade/inversion_test"

@@ -498,23 +498,22 @@ class Gradient3d(object):
                     if clen != 9999:
                         bootstrap_t[counter] = result["dt"][_j]
                         bootstrap_m[counter] = result["a"][_j]
-                        bootstrap_cost_lists.append(result["cost"][_j])
+                        bootstrap_cost_lists.append(
+                            result["cost"][_j].tolist())
                         bootstrap_cost_len.append(clen)
                         maxlen = np.max(np.array([maxlen, clen]))
                         counter += 1
-
             # Compute stats
             self.bootstrap_mean = np.array([np.mean(bootstrap_m),
                                             np.mean(bootstrap_t)])
             self.bootstrap_std = np.array([np.std(bootstrap_m),
                                            np.std(bootstrap_t)])
 
-            # Fix bootstrap cost list.
-            self.cost_array = np.zeros((self.config.bootstrap_repeat, maxlen))
-            for _i, clist in enumerate(bootstrap_cost_lists):
-                self.cost_array[_i, :] = clist[:maxlen]
-                self.cost_array[_i, bootstrap_cost_len[_i]:] = \
-                    clist[bootstrap_cost_len[_i] - 1]
+            self.cost_array = np.array(bootstrap_cost_lists)[:, :maxlen]
+            for _i, (row, clen) in enumerate(zip(self.cost_array,
+                                                 bootstrap_cost_len)):
+                self.cost_array[_i, clen:] = row[clen - 1]
+
         else:
 
             results = Parallel(n_jobs=self.num_cores)(
@@ -1158,7 +1157,8 @@ class Gradient(object):
         """Takes in a set of data (needs to be same as original obsd data
         and computes the misfit between the input and observed data.
         """
-        return np.sum(self.tapers * (self.obsd - self.ssynt) ** 2, axis=None)
+        return 0.5 * np.sum(self.tapers * (self.obsd - self.ssynt) ** 2,
+                            axis=None)
 
     def compute_residual(self):
         """Takes in a set of data (needs to be same as original obsd data
