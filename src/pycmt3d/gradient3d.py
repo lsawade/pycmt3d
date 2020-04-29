@@ -1076,8 +1076,7 @@ class Gradient(object):
             self.shifted = timeshift_mat(self.synt, m[1], self.delta)
             self.ssynt = m[0] * self.shifted
 
-
-    def compute_hessian(self):
+def compute_hessian(self):
         """Computes Hessian depending on the method chosen.
         """
 
@@ -1159,9 +1158,7 @@ class Gradient(object):
         """Takes in a set of data (needs to be same as original obsd data
         and computes the misfit between the input and observed data.
         """
-        return np.sum(self.tapers
-                            * (self.obsd - self.ssynt) ** 2,
-                             axis=None)
+        return np.sum(self.tapers * (self.obsd - self.ssynt) ** 2, axis=None)
 
     def compute_residual(self):
         """Takes in a set of data (needs to be same as original obsd data
