@@ -1076,7 +1076,7 @@ class Gradient(object):
             self.shifted = timeshift_mat(self.synt, m[1], self.delta)
             self.ssynt = m[0] * self.shifted
 
-def compute_hessian(self):
+    def compute_hessian(self):
         """Computes Hessian depending on the method chosen.
         """
 
