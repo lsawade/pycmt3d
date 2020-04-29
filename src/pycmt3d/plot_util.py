@@ -457,9 +457,9 @@ class PlotInvSummary(object):
             self.bootstrap_std = np.append(self.bootstrap_std, np.nan)
 
     @classmethod
-    def from_JSON(cls, filename):
+    def from_JSON(cls, cmt3d_file, g3d_file=None):
 
-        d = load_json(os.path.abspath(filename))
+        d = load_json(os.path.abspath(cmt3d_file))
         data_container = {"sta_lon": np.array(d["sta_lon"]),
                           "sta_lat": np.array(d["sta_lat"]),
                           "nwindows": d["nwindows"],
@@ -472,7 +472,12 @@ class PlotInvSummary(object):
         bootstrap_std = np.array(d["bootstrap_std"])
         var_reduction = d["var_reduction"]
         mode = d["mode"]
-        G = d["G"]
+
+        if g3d_file is not None:
+            g3d = load_json(os.path.abspath(g3d_file))
+            G = g3d["G"]
+            G["config"] = g3d["config"]
+            new_cmtsource = CMTSource.from_dictionary(g3d["newcmt"])
 
         # final scaling and shift
         # misfit reduction
@@ -1053,10 +1058,7 @@ class PlotInvSummary(object):
                         color='darkgray', label=r"$\bar{\chi}\pm\sigma$")
         ax.plot(self.G.meancost_array, 'k', label=r"$\bar{\chi}$")
 
-        if type(self.G) == Gradient3d:
-            method = self.G.config.method
-        else:
-            method = self.G.method
+        method = self.G.config.method
 
         if method == "gn":
             label = "Gauss-Newton"
@@ -1127,14 +1129,17 @@ class PlotInvSummary(object):
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-f', help='Path to inversion summary JSON file',
-                        type=str, dest='inputfile', required=True)
+    parser.add_argument('-c', help='Path to cmt3d inversion summary JSON file',
+                        type=str, dest='cmt3dfile', required=True)
+    parser.add_argument('-g', type=str, dest='g3dfile', required=False,
+                        help='Path to grid search inversion summary JSON file',
+                        default=None)
     parser.add_argument('-o', help='Output filename', dest='outputfile',
                         required=True, type=str)
     args = parser.parse_args()
 
     # Run
-    pl = PlotInvSummary.from_JSON(args.inputfile)
+    pl = PlotInvSummary.from_JSON(args.cmt3dfile, g3d_file=args.g3dfile)
     pl.plot_inversion_summary(figurename=args.outputfile)
 
 

@@ -1156,8 +1156,9 @@ class Gradient(object):
         """Takes in a set of data (needs to be same as original obsd data
         and computes the misfit between the input and observed data.
         """
-        return np.sum(self.tapers * self.delta
-                      * (self.obsd - self.m[0] * self.ssynt) ** 2, axis=None)
+        return 0.5 * np.sum(self.tapers * self.delta
+                            * (self.obsd - self.m[0] * self.ssynt) ** 2,
+                            axis=None)
 
     def compute_residual(self):
         """Takes in a set of data (needs to be same as original obsd data
