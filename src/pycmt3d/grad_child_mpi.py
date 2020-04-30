@@ -55,7 +55,6 @@ for _i, job in enumerate(d["jobs"][rank]):
     results["cost"][_i, :] = np.array(G.cost_list)
     results["cost_len"][_i] = G.it
 
-print(results)
 # Send back the populated dictionary
 send_result_dictionary(results, comm)
 
