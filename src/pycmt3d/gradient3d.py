@@ -510,7 +510,6 @@ class Gradient3d(object):
             self.bootstrap_std = np.array([np.std(bootstrap_m),
                                            np.std(bootstrap_t)])
 
-
             self.cost_array = np.array(bootstrap_cost_lists)[:, :maxlen]
             for _i, (row, clen) in enumerate(zip(self.cost_array,
                                                  bootstrap_cost_len)):
