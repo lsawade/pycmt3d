@@ -84,14 +84,15 @@ class TraceWindow(object):
 
     def __init__(self, datalist=None, windows=None, init_weight=None,
                  longitude=None, latitude=None, wave_weight=1.0,
-                 velocity=False, tags=None, source=None, source_file=None,
-                 path_dict=None):
+                 wave_type=None, velocity=False, tags=None, source=None,
+                 source_file=None, path_dict=None):
         """
         :param datalist: the datalist keeping all the traces
         :type datalist: dict
         :param windows: window time information
         :param init_weight: initial weight
         :param wave_weight: Give the trace a certain weight, not reassigned.
+        :param wave_type: Str, eg. mantle, surface, body..
         :param velocity: If true, trace was loaded as velocity measurement
         :param longitude: longitude of the stations
         :param latitude: latitude of the stations
@@ -132,6 +133,7 @@ class TraceWindow(object):
         # for Global CMT mimicking.
         self.velocity = velocity
         self.wave = wave_weight
+        self.wave_type = wave_type
 
         # Source file
         self.source_file = source_file
@@ -412,7 +414,7 @@ class DataContainer(Sequence):
 
     def add_measurements_from_sac(self, flexwinfile, tag="untaged",
                                   initial_weight=1.0, wave_weight=1.0,
-                                  velocity=False,
+                                  wave_type=None, velocity=False,
                                   external_stationfile=None,
                                   window_time_mode="relative_time",
                                   file_format="json"):
@@ -475,6 +477,7 @@ class DataContainer(Sequence):
                 for key, _tr in _trace.datalist.items():
                     logger.debug("Converting %s" % _tr.id)
                     to_velocity(_tr)
+            _trace.wave_type = wave_type
 
         ntrwins, nwins = self._get_counts(trwins)
 
@@ -490,7 +493,7 @@ class DataContainer(Sequence):
     def add_measurements_from_asdf(self, flexwinfile, asdf_file_dict,
                                    obsd_tag=None, synt_tag=None,
                                    initial_weight=1.0, wave_weight=1.0,
-                                   velocity=False,
+                                   wave_type=None, velocity=False,
                                    external_stationfile=None,
                                    file_format="json"):
         """
@@ -555,6 +558,8 @@ class DataContainer(Sequence):
                 for key, _tr in _trace.datalist.items():
                     logger.debug("Converting %s" % _tr.id)
                     to_velocity(_tr)
+
+            _trace.wave_type = wave_type
 
         ntrwins, nwins = self._get_counts(trwins)
 
@@ -791,8 +796,15 @@ class DataContainer(Sequence):
                 nw = window.network
                 component = window.channel
                 location = window.location
-                filename = "%s.%s.%s.%s.%s.%s.sac" \
-                           % (sta, nw, location, component, suffix, tag)
+                if suffix is None:
+                    filename = "%s.%s.%s.%s.%s.%s.sac" \
+                               % (sta, nw, location, component, suffix, tag)
+                elif suffix == "short":
+                    filename = "%s.%s.%s.%s" \
+                               % (sta, nw, location, component)
+                else:
+                    filename = "%s.%s.%s.%s.%s.sac" \
+                               % (sta, nw, location, component, tag)
                 outputfn = os.path.join(outputdir, filename)
                 new_synt = window.datalist['new_synt']
                 new_synt.write(outputfn, format='SAC')
@@ -801,6 +813,7 @@ class DataContainer(Sequence):
         new_synt_dict = self._sort_new_synt()
 
         for tag, win_array in new_synt_dict.items():
+
             filename = "%s.%s.h5" % (file_prefix, tag)
             if os.path.exists(filename):
                 os.remove(filename)

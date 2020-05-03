@@ -603,7 +603,7 @@ class PlotInvSummary(object):
         text = tag
         plt.text(-0.9, 1.3, text, fontsize=10)
 
-    def plot_table(self):
+    def plot_cmt3d_table(self):
         par_mean = self.bootstrap_mean
         par_std = self.bootstrap_std
         std_over_mean = np.zeros(par_mean.shape)
@@ -614,7 +614,7 @@ class PlotInvSummary(object):
                 std_over_mean[_i] = 0.0
         fontsize = 9
         incre = 0.06
-        pos = 1.06
+        pos = 0.94
         # Moment Tensors
         format1 = "%15.4e  %15.4e  %15.4e  %15.4e  %10.2f%%"
         # CMT/HDR
@@ -709,6 +709,121 @@ class PlotInvSummary(object):
             par_mean[7], par_std[7], std_over_mean[7] * 100)
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        plt.axis('off')
+
+    def plot_full_table(self):
+        """Plots the table that shows the CMT3D and the G3D stuff"""
+
+        par_mean = self.bootstrap_mean
+        par_std = self.bootstrap_std
+        std_over_mean = np.zeros(par_mean.shape)
+        for _i in range(par_mean.shape[0]):
+            if par_mean[_i] != 0:
+                std_over_mean[_i] = par_std[_i] / np.abs(par_mean[_i])
+            else:
+                std_over_mean[_i] = 0.0
+        fontsize = 9
+        incre = 0.06
+        pos = 1.06
+        # Moment Tensors
+        format1 = "%15.4e  %15.4e  %15.4e  %15.4e  %10.2f%%"
+        # CMT/HDR
+        format2 = r"%10.3f s  %13.3f s  " \
+                  "%13.3f s  %13.3f s  %13.2f%%"
+        # Depth
+        format3 = "%10.3f km  %12.3f km  %12.3f km  %12.3f km  %12.2f%%"
+        # LatLon
+        format4 = "%10.3f deg  %11.3f deg  %11.3f deg  %11.3f deg  %11.2f%%"
+
+        text = "Number of stations: %5d    Number of windows: %4d" \
+               % (len(self.sta_lat), self.nwindows) + \
+               "    Envelope coef: %12.3f" % self.config.envelope_coef
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+
+        pos -= incre
+        text = "Number of Parameter: %4d    Zero-Trace: %11s" \
+               "    Double-couple: %12s " \
+               % (self.config.npar, self.config.zero_trace,
+                  self.config.double_couple)
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+
+        pos -= incre
+        text = "Station Correction: %5s    Norm_by_energy: %7s" \
+               "    Norm_by_category: %9s" \
+               % (self.config.station_correction,
+                  self.config.weight_config.normalize_by_energy,
+                  self.config.weight_config.normalize_by_category)
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+
+        pos -= incre
+        energy_change = \
+            (self.new_cmtsource.M0 - self.cmtsource.M0) / self.cmtsource.M0
+        text = "Inversion Damping: %6.3f    Energy Change: %7.2f%%" \
+               "    Variance Reduction: %6.2f%%" \
+               % (self.config.damping, energy_change * 100,
+                  self.var_reduction * 100)
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+
+        pos -= incre
+        text = "-" * 32 + "   Summary Table   " + "-" * 32
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+
+        pos -= incre
+        text = "PAR      Global CMT          CMT3D           GRID          " \
+               "Bootstrap_Mean   Bootstrap_STD  STD/Mean"
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+
+        pos -= incre
+        text = "PAR      Global CMT          CMT3D           GRID          " \
+               "Bootstrap_Mean   Bootstrap_STD  STD/Mean"
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+
+        pos -= incre
+        text = "Mrr:" + format1 % (
+            self.cmtsource.m_rr, self.new_cmtsource.m_rr,
+            par_mean[0], par_std[0], std_over_mean[0] * 100)
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        text = "Mtt:" + format1 % (
+            self.cmtsource.m_tt, self.new_cmtsource.m_tt,
+            par_mean[1], par_std[1], std_over_mean[1] * 100)
+        pos -= incre
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        text = "Mpp:" + format1 % (
+            self.cmtsource.m_pp, self.new_cmtsource.m_pp,
+            par_mean[2], par_std[2], std_over_mean[2] * 100)
+        pos -= incre
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        text = "Mrt:" + format1 % (
+            self.cmtsource.m_rt, self.new_cmtsource.m_rt,
+            par_mean[3], par_std[3], std_over_mean[3] * 100)
+        pos -= incre
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        text = "Mrp:" + format1 % (
+            self.cmtsource.m_rp, self.new_cmtsource.m_rp,
+            par_mean[4], par_std[4], std_over_mean[4] * 100)
+        pos -= incre
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        text = "Mtp:" + format1 % (
+            self.cmtsource.m_tp, self.new_cmtsource.m_tp,
+            par_mean[5], par_std[5], std_over_mean[5] * 100)
+        pos -= incre
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        text = "DEP:" + format3 % (
+            self.cmtsource.depth_in_m / 1000,
+            self.new_cmtsource.depth_in_m / 1000,
+            par_mean[6] / 1000, par_std[6] / 1000, std_over_mean[6] * 100)
+        pos -= incre
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        text = "LAT:" + format4 % (
+            self.cmtsource.latitude, self.new_cmtsource.latitude,
+            par_mean[8], par_std[8], std_over_mean[8] * 100)
+        pos -= incre
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
+        text = "LON:" + format4 % (
+            self.cmtsource.longitude, self.new_cmtsource.longitude,
+            par_mean[7], par_std[7], std_over_mean[7] * 100)
+        pos -= incre
+        plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         text = "Grid Search Parameters:"
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
@@ -725,13 +840,6 @@ class PlotInvSummary(object):
             self.bootstrap_std[-1] / self.bootstrap_mean[-1] * 100)
         pos -= incre
         plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
-
-        # text = "HDR:" + format2 % (
-        #        self.cmtsource.half_duration,
-        #        self.new_cmtsource.half_duration,
-        #        par_mean[10], par_std[10], std_over_mean[10] * 100)
-        # pos -= incre
-        # plt.text(0, pos, text, fontsize=fontsize, fontfamily='monospace')
         plt.axis('off')
 
     def plot_global_map(self):
@@ -1116,7 +1224,10 @@ class PlotInvSummary(object):
         self.plot_si_bb_comp(ax, self.new_cmtsource, self.cmtsource,
                              "Inversion")
         plt.subplot(g[2, :-1])
-        self.plot_table()
+        if type(self.G) is not None:
+            self.plot_cmt3d_table()
+        else:
+            self.plot_full_table()
         fig.canvas.draw()
         plt.tight_layout()
         if figurename is None:

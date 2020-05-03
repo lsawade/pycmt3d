@@ -14,22 +14,28 @@ Last Update: January 2020
 """
 
 from __future__ import print_function, division
-import inspect
 import os
+import glob
+import shutil
+import inspect
 import pytest
 from pycmt3d import DefaultWeightConfig, Config
 from pycmt3d.constant import PARLIST
 from pycmt3d import CMTSource
 from pycmt3d import DataContainer
-from pycmt3d import Grid3dConfig
-from pycmt3d import Inversion
-from pycmt3d.gradient3d import Gradient3dConfig
+from pycmt3d import Cmt3D, Config
+from pycmt3d import Gradient3d, Gradient3dConfig
 # Most generic way to get the data geology path.
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(
     inspect.getfile(inspect.currentframe()))), "data")
 OBSD_DIR = os.path.join(DATA_DIR, "data_T006_T030")
 SYNT_DIR = os.path.join(DATA_DIR, "syn_T006_T030")
 CMTFILE = os.path.join(DATA_DIR, "CMTSOLUTION")
+
+
+def copy_files(files, destdir):
+    for f in files:
+        shutil.copy(f, destdir)
 
 
 @pytest.fixture
@@ -75,6 +81,16 @@ def construct_dcon_two():
 
 def test_inversion(cmtsource, tmpdir):
 
+    outdir = os.path.join(str(tmpdir))
+    newdata_dir = os.path.join(outdir, "data_T006_T030")
+    newsyn_dir = os.path.join(outdir, "syn_T006_T030")
+
+    # Copy OBSD files to new directory
+    files = glob.glob(os.path.join(OBSD_DIR, "*.sac.d"))
+    copy_files(files, newdata_dir)
+
+
+    # Construct data container with the old files.
     dcon_two = construct_dcon_two()
 
     weight_config = DefaultWeightConfig(
@@ -83,134 +99,31 @@ def test_inversion(cmtsource, tmpdir):
         love_dist_weight=1.0, pnl_dist_weight=1.0,
         rayleigh_dist_weight=1.0, azi_exp_idx=0.5)
 
-    cmt3d_config = Config(9, dlocation=0.5, ddepth=0.5, dmoment=1.0e22,
-                          zero_trace=True, weight_data=True,
-                          station_correction=True,
-                          weight_config=weight_config,
-                          bootstrap=True, bootstrap_repeat=20,
-                          bootstrap_subset_ratio=0.4)
+    config = Config(9, dlocation=0.5, ddepth=0.5, dmoment=1.0e22,
+                    zero_trace=True, weight_data=True, wave_weight=True,
+                    station_correction=True, envelope_coef=0.5,
+                    weight_config=weight_config)
 
-    energy_keys = ["power_l1", "power_l2", "cc_amp", "chi"]
-    grid3d_config = Grid3dConfig(origin_time_inv=True, time_start=-5,
-                                 time_end=5,
-                                 dt_over_delta=5, energy_inv=True,
-                                 energy_start=0.5, energy_end=1.5,
-                                 denergy=0.1,
-                                 energy_keys=energy_keys,
-                                 energy_misfit_coef=[0.25, 0.25, 0.25, 0.25],
-                                 weight_data=True, weight_config=weight_config)
-
-    inv = Inversion(cmtsource, dcon_two, cmt3d_config, grid3d_config)
-    inv.source_inversion()
-    inv.plot_summary(str(tmpdir))
+    srcinv = Cmt3D(cmtsource, dcon_two, config)
+    srcinv.source_inversion()
+    srcinv.plot_new_synt_seismograms(outputdir=outdir)
+    srcinv.write_new_cmtfile(outputdir=outdir)
+    srcinv.write_new_syn(outputdir=newsyn_dir, suffix="short")
 
 
-def test_inversion_no_grid(cmtsource, tmpdir):
+    # Load cmt form tmpdir
+    cmtfile = glob.glob(os.path.join(outdir, "*.inv"))[0]
+    cmtsourcenew = CMTSource.from_CMTSOLUTION_file(cmtfile)
 
-    dcon_two = construct_dcon_two()
+    # Create new datacontainer
+    window_file = os.path.join(DATA_DIR,
+                               "flexwin_T006_T030.output.two_stations")
+    copy_files([window_file], outdir)
+    newwinfile = os.path.join(outdir, "flexwin_T006_T030.output.two_stations")
 
-    weight_config = DefaultWeightConfig(
-        normalize_by_energy=False, normalize_by_category=False,
-        comp_weight={"Z": 1.0, "R": 1.0, "T": 1.0},
-        love_dist_weight=1.0, pnl_dist_weight=1.0,
-        rayleigh_dist_weight=1.0, azi_exp_idx=0.5)
-
-    cmt3d_config = Config(9, dlocation=0.5, ddepth=0.5, dmoment=1.0e22,
-                          zero_trace=True, weight_data=True,
-                          station_correction=True,
-                          weight_config=weight_config,
-                          bootstrap=True, bootstrap_repeat=20,
-                          bootstrap_subset_ratio=0.4)
-
-    inv = Inversion(cmtsource, dcon_two, cmt3d_config, mt_config=None)
-    inv.source_inversion()
-    inv.plot_summary(str(tmpdir))
-
-
-def test_inversion_grad(cmtsource, tmpdir):
-
-    dcon_two = construct_dcon_two()
-
-    weight_config = DefaultWeightConfig(
-        normalize_by_energy=False, normalize_by_category=False,
-        comp_weight={"Z": 1.0, "R": 1.0, "T": 1.0},
-        love_dist_weight=1.0, pnl_dist_weight=1.0,
-        rayleigh_dist_weight=1.0, azi_exp_idx=0.5)
-
-    cmt3d_config = Config(9, dlocation=0.5, ddepth=0.5, dmoment=1.0e22,
-                          zero_trace=True, weight_data=True,
-                          station_correction=True,
-                          weight_config=weight_config,
-                          bootstrap=True, bootstrap_repeat=20,
-                          bootstrap_subset_ratio=0.4)
-
-    grad3d_config = Gradient3dConfig(method="gn", weight_data=True,
-                                     weight_config=weight_config,
-                                     taper_type="tukey",
-                                     c1=1e-4, c2=0.9,
-                                     idt=0.0, ia=1.,
-                                     nt=10, nls=20,
-                                     crit=0.01,
-                                     precond=False, reg=False,
-                                     bootstrap=False, bootstrap_repeat=20,
-                                     bootstrap_subset_ratio=0.4, mpi_env=True)
-
-    inv = Inversion(cmtsource, dcon_two, cmt3d_config, grad3d_config)
-    inv.source_inversion()
-    inv.write_summary_json(str(tmpdir))
-    inv.plot_summary(str(tmpdir))
-
-
-def test_inversion_grad_no_mpi(cmtsource, tmpdir):
-
-    dcon_two = construct_dcon_two()
-
-    weight_config = DefaultWeightConfig(
-        normalize_by_energy=False, normalize_by_category=False,
-        comp_weight={"Z": 1.0, "R": 1.0, "T": 1.0},
-        love_dist_weight=1.0, pnl_dist_weight=1.0,
-        rayleigh_dist_weight=1.0, azi_exp_idx=0.5)
-
-    cmt3d_config = Config(9, dlocation=0.5, ddepth=0.5, dmoment=1.0e22,
-                          zero_trace=True, weight_data=True,
-                          station_correction=True,
-                          weight_config=weight_config,
-                          bootstrap=True, bootstrap_repeat=20,
-                          bootstrap_subset_ratio=0.4)
-
-    grad3d_config = Gradient3dConfig(method="gn", weight_data=True,
-                                     weight_config=weight_config,
-                                     taper_type="tukey",
-                                     c1=1e-4, c2=0.9,
-                                     idt=0.0, ia=1.,
-                                     nt=10, nls=20,
-                                     crit=0.01,
-                                     precond=False, reg=False,
-                                     bootstrap=False, bootstrap_repeat=20,
-                                     bootstrap_subset_ratio=0.4, mpi_env=False)
-
-    inv = Inversion(cmtsource, dcon_two, cmt3d_config, grad3d_config)
-    inv.source_inversion()
-    inv.write_summary_json(str(tmpdir))
-    inv.plot_summary(str(tmpdir))
-
-
-def test_inversion_grad_serial(cmtsource, tmpdir):
-
-    dcon_two = construct_dcon_two()
-
-    weight_config = DefaultWeightConfig(
-        normalize_by_energy=False, normalize_by_category=False,
-        comp_weight={"Z": 1.0, "R": 1.0, "T": 1.0},
-        love_dist_weight=1.0, pnl_dist_weight=1.0,
-        rayleigh_dist_weight=1.0, azi_exp_idx=0.5)
-
-    cmt3d_config = Config(9, dlocation=0.5, ddepth=0.5, dmoment=1.0e22,
-                          zero_trace=True, weight_data=True,
-                          station_correction=True,
-                          weight_config=weight_config,
-                          bootstrap=True, bootstrap_repeat=20,
-                          bootstrap_subset_ratio=0.4)
+    dcon_new = DataContainer()
+    dcon_new.add_measurements_from_sac(newwinfile, tag="T006_T030",
+                                   file_format="txt")
 
     grad3d_config = Gradient3dConfig(method="gn", weight_data=True,
                                      weight_config=weight_config,
@@ -222,76 +135,12 @@ def test_inversion_grad_serial(cmtsource, tmpdir):
                                      precond=False, reg=False,
                                      bootstrap=False, bootstrap_repeat=20,
                                      bootstrap_subset_ratio=0.4,
-                                     parallel=False, mpi_env=False)
+                                     mpi_env=False)
 
-    inv = Inversion(cmtsource, dcon_two, cmt3d_config, grad3d_config)
-    inv.source_inversion()
-    inv.write_summary_json(str(tmpdir))
-    inv.plot_summary(str(tmpdir))
+    G = Gradient3d(cmtsourcenew, dcon_new, grad3d_config)
+    G.search()
+    G.write_summary_json(outdir)
 
 
-if __name__ == "__main__":
-    outdir = "."
-    cmt = CMTSource.from_CMTSOLUTION_file(CMTFILE)
 
-    dcon = DataContainer(parlist=PARLIST[:9])
-    os.chdir(DATA_DIR)
-    window_file = os.path.join(DATA_DIR,
-                               "flexwin_T006_T030."
-                               "output")
-    dcon.add_measurements_from_sac(window_file, tag="T006_T030",
-                                   velocity=True,
-                                   wave_weight=1.0,
-                                   file_format="txt")
 
-    weight_config = DefaultWeightConfig(
-        normalize_by_energy=True, normalize_by_category=True,
-        comp_weight={"Z": 1.0, "R": 1.0, "T": 1.0},
-        love_dist_weight=1.0, pnl_dist_weight=1.0,
-        rayleigh_dist_weight=1.0, azi_exp_idx=0.5)
-
-    cmt3d_config = Config(9, dlocation=0.5, ddepth=0.5, dmoment=1.0e22,
-                          zero_trace=True, weight_data=True,
-                          station_correction=True, wave_weight=True,
-                          weight_config=weight_config,
-                          bootstrap=True, bootstrap_repeat=20,
-                          bootstrap_subset_ratio=0.4)
-
-    energy_keys = ["power_l1", "power_l2", "cc_amp", "chi"]
-
-    grid3d_config = Grid3dConfig(origin_time_inv=True, time_start=-1.5,
-                                 time_end=1.5,
-                                 dt_over_delta=1, energy_inv=True,
-                                 energy_start=0.2, energy_end=1.8,
-                                 denergy=0.025,
-                                 energy_keys=energy_keys,
-                                 energy_misfit_coef=[0.25, 0.25,
-                                                     0.25, 0.25],
-                                 weight_data=True,
-                                 weight_config=weight_config)
-
-    grad3d_config = Gradient3dConfig(method="gn", weight_data=True,
-                                     weight_config=weight_config,
-                                     taper_type="tukey",
-                                     c1=1e-4, c2=0.9,
-                                     idt=0.0, ia=1.,
-                                     nt=10, nls=20,
-                                     crit=0.01, damping=0.001,
-                                     precond=False, reg=False,
-                                     bootstrap=True, bootstrap_repeat=20,
-                                     bootstrap_subset_ratio=0.6,
-                                     parallel=True, mpi_env=True
-                                     )
-
-    outdir = "/Users/lucassawade/inversion_test"
-    pre = "/Users/lucassawade/inversion_test/pregrid"
-
-    inv = Inversion(cmt, dcon, cmt3d_config, grad3d_config)
-    inv.source_inversion(pregrid_stats_dir=pre)
-    inv.write_summary_json(outdir)
-    inv.plot_summary(outdir)
-
-    inv.plot_new_synt_seismograms(outdir)
-    inv.write_new_cmtfile(outdir)
-
-    inv.G.plot_stats_histogram(outputdir=outdir)

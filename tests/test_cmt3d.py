@@ -231,4 +231,40 @@ def test_plot_stats_histogram(cmtsource, tmpdir):
 
 
 if __name__ == "__main__":
-    pass
+    outdir = "."
+    cmt = CMTSource.from_CMTSOLUTION_file(CMTFILE)
+
+    dcon = DataContainer(parlist=PARLIST[:9])
+    os.chdir(DATA_DIR)
+    window_file = os.path.join(DATA_DIR,
+                               "flexwin_T006_T030."
+                               "output.two_stations")
+    dcon.add_measurements_from_sac(window_file, tag="T006_T030",
+                                   velocity=True, wave_type="local",
+                                   wave_weight=1.0,
+                                   file_format="txt")
+
+    weight_config = DefaultWeightConfig(
+        normalize_by_energy=True, normalize_by_category=True,
+        comp_weight={"Z": 1.0, "R": 1.0, "T": 1.0},
+        love_dist_weight=1.0, pnl_dist_weight=1.0,
+        rayleigh_dist_weight=1.0, azi_exp_idx=0.5)
+
+    cmt3d_config = Config(9, dlocation=0.5, ddepth=0.5, dmoment=1.0e22,
+                          zero_trace=True, weight_data=True,
+                          station_correction=True, wave_weight=True,
+                          weight_config=weight_config,
+                          bootstrap=True, bootstrap_repeat=20,
+                          bootstrap_subset_ratio=0.4)
+
+    outdir = "/Users/lucassawade/inversion_test"
+    pre = "/Users/lucassawade/inversion_test/pregrid"
+
+    inv = Cmt3D(cmt, dcon, cmt3d_config)
+    inv.source_inversion()
+    inv.write_summary_json(outdir)
+    inv.plot_summary(outdir)
+
+    inv.plot_new_synt_seismograms(outdir)
+    inv.write_new_syn(outdir, suffix="short")
+    inv.write_new_cmtfile(outdir)

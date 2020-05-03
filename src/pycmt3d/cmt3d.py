@@ -557,7 +557,7 @@ class Cmt3D(object):
         plot_seismograms(self.data_container, outputdir,
                          self.cmtsource, figure_format=figure_format)
 
-    def write_new_syn(self, outputdir=".", file_format="sac"):
+    def write_new_syn(self, outputdir=".", file_format="sac", suffix=None):
         """
         Write out the new synthetic waveform
         """
@@ -570,7 +570,8 @@ class Cmt3D(object):
             raise ValueError("new synt not computed yet")
 
         if file_format == "sac":
-            self.data_container.write_new_synt_sac(outputdir=outputdir)
+            self.data_container.write_new_synt_sac(outputdir=outputdir,
+                                                   suffix=suffix)
         elif file_format == "asdf":
             file_prefix = \
                 os.path.join(outputdir, "new")
@@ -662,17 +663,10 @@ class Cmt3D(object):
 
         outdict["oldcmt"] = self.cmtsource.__dict__
         outdict["newcmt"] = self.new_cmtsource.__dict__
-        outdict["sta_lat"] = np.array([window.latitude
-                                       for window
-                                       in self.data_container.trwins]).tolist()
-        outdict["sta_lon"] = np.array([window.longitude
-                                       for window
-                                       in self.data_container.trwins]).tolist()
+        outdict["wave_dict"] = self.trace_info_dict()
+        outdict["stations"] = set([(window.latitude, window.longitude) for window
+                                   in self.data_container.trwins])
         outdict["nwindows"] = self.data_container.nwindows
-        outdict["nwin_on_trace"] = np.array([window.nwindows
-                                             for window
-                                             in self.data_container.trwins]
-                                            ).tolist()
         outdict["bootstrap_mean"] = self.par_mean.tolist()
         outdict["bootstrap_std"] = self.par_std.tolist()
         outdict["nregions"] = self.config.weight_config.azi_bins
@@ -699,3 +693,39 @@ class Cmt3D(object):
         outdict["mode"] = mode
 
         dump_json(outdict, filename)
+
+
+    def trace_info_dict(self):
+        """Gets all import information from trace such as location,
+        component, etc."""
+
+        # Get the types and weights
+        wave_dict = dict()
+        for _trwin in self.data_container.trwins:
+            if _trwin.wave_type not in wave_dict.keys():
+                wave_dict[_trwin.wave_type] = {"weight": _trwin.wave_weight,
+                                               "velocity": _trwin.velocity}
+
+        for wave in wave_dict.keys():
+            # Vertical list
+            z = []
+
+            # horizontal list
+            h = []
+
+            for _trwin in self.data_container.trwins:
+                if wave == _trwin.wave_type:
+                    logger.debug("Latitude %s" % _trwin.latitude)
+                    logger.debug("Longitude %s" % _trwin.longitude)
+                    trdict = {"lat": float(_trwin.latitude),
+                              "lon": float(_trwin.longitude),
+                              "nwindows": _trwin.nwindows}
+
+                    if _trwin.channel[-1] == "Z":
+                        z.append(trdict)
+                    else:
+                        h.append(trdict)
+
+            wave_dict[wave]["traces"] = {"Z": z, "H": h}
+
+        return wave_dict
