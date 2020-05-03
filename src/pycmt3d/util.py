@@ -344,3 +344,17 @@ def timeshift_trace_roll(tr: Trace, t0: float):
 
     # Compute timeshifted signal using roll
     tr.data = np.roll(tr.data, nt0)
+
+
+def to_velocity(tr: Trace):
+    """Converts trace to velocity.
+
+    Arguments:
+        tr: Obspy trace
+
+    """
+
+    # Get frequency vector
+    freq = np.fft.fftfreq(tr.stats.npts, d=tr.stats.delta)
+
+    tr.data = np.real(scipy.ifft(scipy.fft(tr.data) * 1j*np.pi*freq))

@@ -238,8 +238,10 @@ if __name__ == "__main__":
     os.chdir(DATA_DIR)
     window_file = os.path.join(DATA_DIR,
                                "flexwin_T006_T030."
-                               "output.two_stations")
+                               "output")
     dcon.add_measurements_from_sac(window_file, tag="T006_T030",
+                                   velocity=True,
+                                   wave_weight=1.0,
                                    file_format="txt")
 
     weight_config = DefaultWeightConfig(
@@ -250,7 +252,7 @@ if __name__ == "__main__":
 
     cmt3d_config = Config(9, dlocation=0.5, ddepth=0.5, dmoment=1.0e22,
                           zero_trace=True, weight_data=True,
-                          station_correction=True,
+                          station_correction=True, wave_weight=True,
                           weight_config=weight_config,
                           bootstrap=True, bootstrap_repeat=20,
                           bootstrap_subset_ratio=0.4)
@@ -274,10 +276,10 @@ if __name__ == "__main__":
                                      c1=1e-4, c2=0.9,
                                      idt=0.0, ia=1.,
                                      nt=10, nls=20,
-                                     crit=0.01,
+                                     crit=0.01, damping=0.001,
                                      precond=False, reg=False,
                                      bootstrap=True, bootstrap_repeat=20,
-                                     bootstrap_subset_ratio=0.4,
+                                     bootstrap_subset_ratio=0.6,
                                      parallel=True, mpi_env=True
                                      )
 

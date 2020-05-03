@@ -104,7 +104,7 @@ class Config(object):
 
     def __init__(self, npar, dlocation=0.0, ddepth=0.0, dmoment=0.0,
                  scale_vector=None, zero_trace=True, double_couple=False,
-                 envelope_coef=0.5,  max_nl_iter=60,
+                 envelope_coef=0.5,  max_nl_iter=60, wave_weight=True,
                  damping=0.0, station_correction=True,
                  weight_data=True, weight_config=None,
                  bootstrap=True, bootstrap_repeat=300,
@@ -166,6 +166,7 @@ class Config(object):
         self.dmoment = dmoment
         self._check_perturbation_sanity()
 
+        self.wave_weight = wave_weight
         self.weight_data = weight_data
         self.weight_config = weight_config
 

@@ -206,6 +206,10 @@ class Cmt3D(object):
                 wav_weight = _meta.weights / _meta.prov["wav_energy"]
                 env_weight = _meta.weights / _meta.prov["env_energy"]
 
+                if self.config.wave_weight:
+                    wav_weight *= _trwin.wave_weight
+                    env_weight *= _trwin.wave_weight
+
                 # Just logging things
                 logger.debug("Trace Window: %s -- File: %s"
                              % (_trwin.obsd_id, _trwin.source_file))

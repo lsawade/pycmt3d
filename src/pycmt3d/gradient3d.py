@@ -927,6 +927,9 @@ class Gradient(object):
         self.tapers = tapers
         self.delta = delta
 
+        # Create date normalization
+        self.d2 = np.sum((self.tapers * self.obsd) ** 2, axis=1)
+
         # Method of choice Gauss-Newton or Newton
         if method in ["gn", "n"]:
             self.method = method
@@ -1112,11 +1115,12 @@ class Gradient(object):
         dsda = - self.shifted
         dsddt = self.a * np.gradient(self.shifted, self.delta, axis=-1)
 
-        J11 = np.sum(dsda ** 2 * self.tapers)
-        J22 = np.sum(dsddt ** 2 * self.tapers)
-        J21 = np.sum(dsda * dsddt * self.tapers)
+        J11 = np.sum(dsda ** 2 * self.tapers, axis=1)
+        J22 = np.sum(dsddt ** 2 * self.tapers, axis=1)
+        J21 = np.sum(dsda * dsddt * self.tapers, axis=1)
 
-        return np.array([[J11, J21], [J21, J22]])
+        return np.array([[np.sum(J11 / self.d2), np.sum(J21 / self.d2)],
+                         [np.sum(J21 / self.d2), np.sum(J22 / self.d2)]])
 
     def compute_g(self):
         """Computing the analytical gradient with respect to the model parameters
@@ -1129,7 +1133,8 @@ class Gradient(object):
 
         dCda = - np.sum(self.res * self.shifted * self.tapers)
 
-        return np.array([dCda, dCdt]).T
+        return np.array([dCda,
+                         dCdt]).T
 
     def compute_B(self):
         """Computes analytical Hessian.
@@ -1158,15 +1163,15 @@ class Gradient(object):
         """Takes in a set of data (needs to be same as original obsd data
         and computes the misfit between the input and observed data.
         """
-        return 0.5 * np.sum(self.tapers * (self.obsd - self.ssynt) ** 2,
-                            axis=None)
+        return 0.5 * np.sum(np.sum(self.tapers * (self.obsd - self.ssynt) ** 2,
+                                   axis=1) / self.d2)
 
     def compute_residual(self):
         """Takes in a set of data (needs to be same as original obsd data
         and computes the misfit between the input and observed data.
         """
 
-        return (self.obsd - self.ssynt)
+        return (self.obsd - self.ssynt) / self.d2[:, np.newaxis]
 
     @staticmethod
     def arraystr(array):

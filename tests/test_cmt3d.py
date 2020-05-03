@@ -74,6 +74,22 @@ def construct_dcon_two():
     return dcon
 
 
+def construct_dcon_three():
+    """
+    Data Container with two stations and a velocity measurement
+    """
+    dcon = DataContainer(parlist=PARLIST[:9])
+    os.chdir(DATA_DIR)
+    window_file = os.path.join(DATA_DIR,
+                               "flexwin_T006_T030.output.two_stations")
+    dcon.add_measurements_from_sac(window_file, tag="T006_T030",
+                                   wave_weight=0.5, velocity=True,
+                                   file_format="txt")
+
+
+    return dcon
+
+
 def weight_sum(metas):
     sumw = 0
     for meta in metas:
@@ -155,6 +171,27 @@ def setup_inversion(cmt):
     srcinv = Cmt3D(cmt, dcon_two, config)
     srcinv.source_inversion()
     return srcinv
+
+
+def test_weighting_two_9par_with_wave_weight_and_velocity(tmpdir, cmtsource):
+    dcon_two = construct_dcon_three()
+
+    weight_config = DefaultWeightConfig(
+        normalize_by_energy=False, normalize_by_category=False,
+        comp_weight={"Z": 1.0, "R": 1.0, "T": 1.0},
+        love_dist_weight=1.0, pnl_dist_weight=1.0,
+        rayleigh_dist_weight=1.0, azi_exp_idx=0.5)
+
+    config = Config(9, dlocation=0.5, ddepth=0.5, dmoment=1.0e22,
+                    zero_trace=True, weight_data=True, wave_weight=True,
+                    station_correction=True, envelope_coef=0.5,
+                    weight_config=weight_config)
+
+    srcinv = Cmt3D(cmtsource, dcon_two, config)
+    srcinv.source_inversion()
+    srcinv.plot_new_synt_seismograms(str(tmpdir))
+
+    assert False
 
 
 def test_cmt_bootstrap(cmtsource, tmpdir):

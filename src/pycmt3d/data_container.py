@@ -18,6 +18,7 @@ import numpy as np
 from obspy import read
 from . import logger
 from collections.abc import Sequence
+from .util import to_velocity
 
 from .constant import PARLIST
 
@@ -82,14 +83,16 @@ class TraceWindow(object):
     """
 
     def __init__(self, datalist=None, windows=None, init_weight=None,
-                 longitude=None, latitude=None,
-                 tags=None, source=None, source_file=None,
+                 longitude=None, latitude=None, wave_weight=1.0,
+                 velocity=False, tags=None, source=None, source_file=None,
                  path_dict=None):
         """
         :param datalist: the datalist keeping all the traces
         :type datalist: dict
         :param windows: window time information
         :param init_weight: initial weight
+        :param wave_weight: Give the trace a certain weight, not reassigned.
+        :param velocity: If true, trace was loaded as velocity measurement
         :param longitude: longitude of the stations
         :param latitude: latitude of the stations
         :param tags: tags assigned, could be used to label the category
@@ -124,6 +127,11 @@ class TraceWindow(object):
 
         # sac file path
         self.path_dict = path_dict
+
+        # Trace is velocity measurement and given a certain weight
+        # for Global CMT mimicking.
+        self.velocity = velocity
+        self.wave = wave_weight
 
         # Source file
         self.source_file = source_file
@@ -403,7 +411,8 @@ class DataContainer(Sequence):
         return ntrwins, nwins
 
     def add_measurements_from_sac(self, flexwinfile, tag="untaged",
-                                  initial_weight=1.0,
+                                  initial_weight=1.0, wave_weight=1.0,
+                                  velocity=False,
                                   external_stationfile=None,
                                   window_time_mode="relative_time",
                                   file_format="json"):
@@ -435,6 +444,7 @@ class DataContainer(Sequence):
         t1 = time.time()
 
         _options = ["obsolute_time", "relative_time"]
+
         window_time_mode = window_time_mode.lower()
         if window_time_mode not in _options:
             raise ValueError("load_winfile mode(%s) incorrect: %s"
@@ -456,6 +466,16 @@ class DataContainer(Sequence):
             self.load_data_from_sac(_trace, tag=tag, mode=window_time_mode,
                                     station_dict=station_info)
 
+            # Give weight to trace
+            _trace.wave_weight = wave_weight
+
+            # Convert to velocity
+            if velocity:
+                _trace.velocity = velocity
+                for key, _tr in _trace.datalist.items():
+                    logger.debug("Converting %s" % _tr.id)
+                    to_velocity(_tr)
+
         ntrwins, nwins = self._get_counts(trwins)
 
         t2 = time.time()
@@ -469,7 +489,8 @@ class DataContainer(Sequence):
 
     def add_measurements_from_asdf(self, flexwinfile, asdf_file_dict,
                                    obsd_tag=None, synt_tag=None,
-                                   initial_weight=1.0,
+                                   initial_weight=1.0, wave_weight=1.0,
+                                   velocity=False,
                                    external_stationfile=None,
                                    file_format="json"):
         """
@@ -493,7 +514,7 @@ class DataContainer(Sequence):
         :param synt_tag: same as obsd_tag, used to retrieve the synthetic
             seismograms.
         :param initial_weight: the initial weight you assigned to the windows
-            in the flexwinfile.
+               in the flexwinfile.
         :param external_stationfile: the external station file that provides
             the coordinate of stations, if they are not in the sac header.
             The stationfile should be in SPECFEM3D_globe fashion, with
@@ -524,6 +545,16 @@ class DataContainer(Sequence):
             self.load_data_from_asdf(
                 _trace, asdf_dataset, obsd_tag=obsd_tag,
                 synt_tag=synt_tag, station_dict=station_info)
+
+            # Give weight to trace
+            _trace.wave_weight = wave_weight
+
+            # Convert to velocity
+            if velocity:
+                _trace.velocity = velocity
+                for key, _tr in _trace.datalist.items():
+                    logger.debug("Converting %s" % _tr.id)
+                    to_velocity(_tr)
 
         ntrwins, nwins = self._get_counts(trwins)
 
