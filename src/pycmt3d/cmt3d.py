@@ -346,12 +346,11 @@ class Cmt3D(object):
         b_bootstrap = []
         n_subset = \
             max(int(self.config.bootstrap_subset_ratio * ntrwins), 1)
-        logger.info("Bootstrap repeat: %d  subset_ratio: %f nsub_set: %d"
-                    % (self.config.bootstrap_repeat,
-                       self.config.bootstrap_subset_ratio, n_subset))
+        logger.info("Bootstrap repeat: %d" % (self.config.bootstrap_repeat))
+
         for i in range(self.config.bootstrap_repeat):
-            random_array = random_select(
-                ntrwins, nselected=n_subset)
+
+            random_array = np.random.choice(ntrwins, ntrwins, replace=True)
             _, _, _, _, A, b = \
                 self._ensemble_measurements(Aws, bws, Aes, bes,
                                             choices=random_array)
@@ -550,12 +549,14 @@ class Cmt3D(object):
             weights[meta.obsd_id] = meta.weights
         dump_json(weights, filename)
 
-    def plot_new_synt_seismograms(self, outputdir, figure_format="png"):
+    def plot_new_synt_seismograms(self, outputdir, figure_format="png",
+                                  suffix=None):
         """
         Plot the new synthetic waveform
         """
         plot_seismograms(self.data_container, outputdir,
-                         self.cmtsource, figure_format=figure_format)
+                         self.cmtsource, figure_format=figure_format,
+                         suffix=suffix)
 
     def write_new_syn(self, outputdir=".", file_format="sac", suffix=None):
         """

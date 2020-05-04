@@ -231,7 +231,6 @@ def test_plot_stats_histogram(cmtsource, tmpdir):
 
 
 if __name__ == "__main__":
-    outdir = "."
     cmt = CMTSource.from_CMTSOLUTION_file(CMTFILE)
 
     dcon = DataContainer(parlist=PARLIST[:9])
@@ -263,8 +262,8 @@ if __name__ == "__main__":
     inv = Cmt3D(cmt, dcon, cmt3d_config)
     inv.source_inversion()
     inv.write_summary_json(outdir)
-    inv.plot_summary(outdir)
+    inv.plot_summary(outdir, figure_format='pdf')
 
-    inv.plot_new_synt_seismograms(outdir)
+    inv.plot_new_synt_seismograms(outdir, figure_format='pdf')
     inv.write_new_syn(outdir, suffix="short")
     inv.write_new_cmtfile(outdir)

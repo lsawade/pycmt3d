@@ -104,7 +104,7 @@ def get_new_locations(lat1, lon1, lat2, lon2, padding):
 
 
 def _plot_new_seismogram_sub(trwin: TraceWindow, outputdir,
-                             cmtsource, figure_format):
+                             cmtsource, figure_format, suffix=None):
     obsd = trwin.datalist['obsd']
     synt = trwin.datalist['synt']
     new_synt = trwin.datalist['new_synt']
@@ -114,8 +114,14 @@ def _plot_new_seismogram_sub(trwin: TraceWindow, outputdir,
     network = obsd.stats.network
     channel = obsd.stats.channel
     location = obsd.stats.location
-    outputfig = os.path.join(outputdir, "%s.%s.%s.%s.%s.%s" % (
-        tag, network, station, location, channel, figure_format))
+
+    if suffix is None:
+        outputfig = os.path.join(outputdir, "%s.%s.%s.%s.%s.%s" % (
+            tag, network, station, location, channel, figure_format))
+    else:
+        outputfig = os.path.join(outputdir, "%s.%s.%s.%s.%s.%s.%s" % (
+            tag, network, station, location, channel, suffix, figure_format))
+
 
     # Times and offsets computed individually, since the grid search applies
     # a timeshift which changes the times of the traces.
@@ -148,12 +154,15 @@ def _plot_new_seismogram_sub(trwin: TraceWindow, outputdir,
 
     # Setting top left corner text manually
     fontsize = 11
-    ax1.text(0.005, 0.8,
-             "Network: %2s    Station: %s\n"
-             "Location: %2s  Channel: %3s" %
-             (network, station, location, channel),
+    text = "Network: %2s    Station: %s\n" \
+           "Location: %2s  Channel: %3s" \
+            % (network, station, location, channel)
+    if trwin.velocity:
+        text += "\nV"
+    ax1.text(0.005, 0.95, text,
              fontsize=fontsize,
-             transform=ax1.transAxes)
+             transform=ax1.transAxes,
+             horizontalalignment="left", verticalalignment="top")
 
     for win in trwin.windows:
         left = win[0] + offset
@@ -190,7 +199,7 @@ def _plot_new_seismogram_sub(trwin: TraceWindow, outputdir,
 
 
 def plot_seismograms(data_container: DataContainer, outputdir, cmtsource=None,
-                     figure_format="png"):
+                     figure_format="png", suffix=None):
     """
     Plot the new synthetic and old synthetic data together with data.
     So we can see the how the seimogram changes after inversion.
@@ -206,7 +215,7 @@ def plot_seismograms(data_container: DataContainer, outputdir, cmtsource=None,
                 % outputdir)
     for trwin in data_container:
         _plot_new_seismogram_sub(trwin, outputdir, cmtsource,
-                                 figure_format)
+                                 figure_format, suffix=suffix)
 
 
 class PlotStats(object):
@@ -618,8 +627,7 @@ class PlotInvSummary(object):
         # Moment Tensors
         format1 = "%15.4e  %15.4e  %15.4e  %15.4e  %10.2f%%"
         # CMT/HDR
-        format2 = r"%10.3f s  %13.3f s  " \
-                  "%13.3f s  %13.3f s  %13.2f%%"
+        format2 = r"%10.3f s  %13.3f s  %13.3f s  %13.3f s  %13.2f%%"
         # Depth
         format3 = "%10.3f km  %12.3f km  %12.3f km  %12.3f km  %12.2f%%"
         # LatLon

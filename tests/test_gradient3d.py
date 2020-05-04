@@ -125,7 +125,7 @@ def test_simple_grad3d(tmpdir, cmtsource):
 
 
 if __name__ == "__main__":
-    outdir = "."
+
     cmt = CMTSource.from_CMTSOLUTION_file(CMTFILE)
 
     dcon = DataContainer(parlist=PARLIST[:9])
@@ -164,6 +164,9 @@ if __name__ == "__main__":
                                      bootstrap_subset_ratio=0.4,
                                      mpi_env=False)
 
+
+    outdir = "/Users/lucassawade/inversion_test"
+
     G = Gradient3d(cmtsource, dcon_two, grad3d_config)
     G.search()
-    G.write_summary_json()
+    G.write_summary_json(outdir)

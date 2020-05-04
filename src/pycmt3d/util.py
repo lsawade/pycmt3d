@@ -282,7 +282,7 @@ def timeshift_trace_np2(tr: Trace, t0: float):
         * np.exp(-1j*2*np.pi*freq*t0)))[0:N]
 
 
-def timeshift_mat(M, t0: float, delta: float):
+def timeshift_mat(M, t0: float, delta: float, taper_type="hann"):
     """Takes in a ismic trace and shifts it in time using the fft."""
 
     N = M.shape[1]
@@ -291,15 +291,18 @@ def timeshift_mat(M, t0: float, delta: float):
     # Get frequency vector
     freq = np.fft.fftfreq(Nfix, d=delta)
 
+    # Get taper
+    taper = construct_taper(N, taper_type=taper_type)
+
     # Compute timeshifted signal using fft
     M = np.real(scipy.ifft(
-        scipy.fft(M, n=Nfix, axis=1)
+        scipy.fft(M * taper, n=Nfix, axis=1)
         * np.exp(-1j*2*np.pi*freq*t0)))[:, 0:N]
 
     return M
 
 
-def timeshift_trace_pad(tr: Trace, t0: float):
+def timeshift_trace_pad(tr: Trace, t0: float, taper_type="hann"):
     """Takes in a seismic trace and shifts it in time using the fft."""
 
     N = len(tr.data)
@@ -308,9 +311,12 @@ def timeshift_trace_pad(tr: Trace, t0: float):
     # Get frequency vector
     freq = np.fft.fftfreq(Nfix, d=tr.stats.delta)
 
+    # Get taper
+    taper = construct_taper(N, taper_type=taper_type)
+
     # Compute timeshifted signal using fft
     tr.data = np.real(scipy.ifft(
-        scipy.fft(tr.data, n=Nfix)
+        scipy.fft(tr.data * taper, n=Nfix)
         * np.exp(-1j*2*np.pi*freq*t0)))[0:N]
 
 
@@ -346,7 +352,7 @@ def timeshift_trace_roll(tr: Trace, t0: float):
     tr.data = np.roll(tr.data, nt0)
 
 
-def to_velocity(tr: Trace):
+def to_velocity(tr: Trace, taper_type: str = "hann"):
     """Converts trace to velocity.
 
     Arguments:
@@ -357,4 +363,7 @@ def to_velocity(tr: Trace):
     # Get frequency vector
     freq = np.fft.fftfreq(tr.stats.npts, d=tr.stats.delta)
 
-    tr.data = np.real(scipy.ifft(scipy.fft(tr.data) * 1j*np.pi*freq))
+    # Get taper
+    taper = construct_taper(tr.stats.npts, taper_type=taper_type)
+
+    tr.data = np.real(scipy.ifft(scipy.fft(tr.data * taper) * 1j*np.pi*freq))

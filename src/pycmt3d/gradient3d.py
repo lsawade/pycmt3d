@@ -410,7 +410,7 @@ class Gradient3d(object):
         random_arrays = []
         for _i in range(self.config.bootstrap_repeat):
             # Get random array
-            random_array = np.random.choice(self.ntraces, self.n_subset,
+            random_array = np.random.choice(self.ntraces, self.ntraces,
                                             replace=True)
             random_arrays.append(random_array)
 
@@ -737,12 +737,14 @@ class Gradient3d(object):
         plots = plot_util.PlotStats(self.data_container, self.metas, figname)
         plots.plot_stats_histogram()
 
-    def plot_new_synt_seismograms(self, outputdir, figure_format="pdf"):
+    def plot_new_synt_seismograms(self, outputdir, figure_format="pdf",
+                                  suffix=None):
         """
         Plot the new synthetic waveform
         """
         plot_util.plot_seismograms(self.data_container, outputdir,
-                                   self.cmtsource, figure_format=figure_format)
+                                   self.cmtsource, suffix=suffix,
+                                   figure_format=figure_format)
 
     def write_new_syn(self, outputdir=".", file_format="sac"):
         """

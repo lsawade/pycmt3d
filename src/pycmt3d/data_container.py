@@ -415,6 +415,7 @@ class DataContainer(Sequence):
     def add_measurements_from_sac(self, flexwinfile, tag="untaged",
                                   initial_weight=1.0, wave_weight=1.0,
                                   wave_type=None, velocity=False,
+                                  only_observed=False,
                                   external_stationfile=None,
                                   window_time_mode="relative_time",
                                   file_format="json"):
@@ -429,6 +430,12 @@ class DataContainer(Sequence):
             the windows into different categories.
         :param initial_weight: the initial weight you assigned to the windows
             in the flexwinfile.
+        :param wave_weight: giving a weight to a specific wave
+        :param wave_type: specific wave
+        :param velocity: transform traces to velocity
+        :param only_observed: brings only observed to velocity, necessary
+                              if you want to use the gridsearch on already
+                              transformed synthetic traces.
         :param external_stationfile: the external station file that provides
             the coordinate of stations, if they are not in the sac header.
             The stationfile should be in SPECFEM3D_globe fashion, with
@@ -474,9 +481,12 @@ class DataContainer(Sequence):
             # Convert to velocity
             if velocity:
                 _trace.velocity = velocity
-                for key, _tr in _trace.datalist.items():
-                    logger.debug("Converting %s" % _tr.id)
-                    to_velocity(_tr)
+                logger.debug("Converting %s" % _trace.obsd_id)
+                if only_observed:
+                    to_velocity(_trace.datalist["obsd"])
+                else:
+                    for key, _tr in _trace.datalist.items():
+                        to_velocity(_tr)
             _trace.wave_type = wave_type
 
         ntrwins, nwins = self._get_counts(trwins)
@@ -494,6 +504,7 @@ class DataContainer(Sequence):
                                    obsd_tag=None, synt_tag=None,
                                    initial_weight=1.0, wave_weight=1.0,
                                    wave_type=None, velocity=False,
+                                   only_observed=False,
                                    external_stationfile=None,
                                    file_format="json"):
         """
@@ -518,6 +529,12 @@ class DataContainer(Sequence):
             seismograms.
         :param initial_weight: the initial weight you assigned to the windows
                in the flexwinfile.
+        :param wave_weight: giving a weight to a specific wave
+        :param wave_type: specific wave
+        :param velocity: transform traces to velocity
+        :param only_observed: brings only observed to velocity, necessary
+                              if you want to use the gridsearch on already
+                              transformed synthetic traces.
         :param external_stationfile: the external station file that provides
             the coordinate of stations, if they are not in the sac header.
             The stationfile should be in SPECFEM3D_globe fashion, with
@@ -555,10 +572,12 @@ class DataContainer(Sequence):
             # Convert to velocity
             if velocity:
                 _trace.velocity = velocity
-                for key, _tr in _trace.datalist.items():
-                    logger.debug("Converting %s" % _tr.id)
-                    to_velocity(_tr)
-
+                logger.debug("Converting %s" % _trace.obsd_id)
+                if only_observed:
+                    to_velocity(_trace.datalist["obsd"])
+                else:
+                    for key, _tr in _trace.datalist.items():
+                        to_velocity(_tr)
             _trace.wave_type = wave_type
 
         ntrwins, nwins = self._get_counts(trwins)
@@ -796,12 +815,13 @@ class DataContainer(Sequence):
                 nw = window.network
                 component = window.channel
                 location = window.location
-                if suffix is None:
-                    filename = "%s.%s.%s.%s.%s.%s.sac" \
-                               % (sta, nw, location, component, suffix, tag)
-                elif suffix == "short":
-                    filename = "%s.%s.%s.%s" \
-                               % (sta, nw, location, component)
+                if suffix is not None:
+                    if suffix == "short":
+                        filename = "%s.%s.%s" \
+                            % (sta, nw, component)
+                    else:
+                        filename = "%s.%s.%s.%s.%s.%s.sac" \
+                            % (sta, nw, location, component, suffix, tag)
                 else:
                     filename = "%s.%s.%s.%s.%s.sac" \
                                % (sta, nw, location, component, tag)
