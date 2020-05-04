@@ -191,8 +191,6 @@ def test_weighting_two_9par_with_wave_weight_and_velocity(tmpdir, cmtsource):
     srcinv.source_inversion()
     srcinv.plot_new_synt_seismograms(str(tmpdir))
 
-    assert False
-
 
 def test_cmt_bootstrap(cmtsource, tmpdir):
     dcon_two = construct_dcon_two()
