@@ -282,7 +282,7 @@ def timeshift_trace_np2(tr: Trace, t0: float):
         * np.exp(-1j*2*np.pi*freq*t0)))[0:N]
 
 
-def timeshift_mat(M, t0: float, delta: float, taper_type="hann"):
+def timeshift_mat(M, t0: float, delta: float, taper_type="tukey", alpha=0.05):
     """Takes in a ismic trace and shifts it in time using the fft."""
 
     N = M.shape[1]
@@ -292,7 +292,7 @@ def timeshift_mat(M, t0: float, delta: float, taper_type="hann"):
     freq = np.fft.fftfreq(Nfix, d=delta)
 
     # Get taper
-    taper = construct_taper(N, taper_type=taper_type)
+    taper = construct_taper(N, taper_type=taper_type, alpha=alpha)
 
     # Compute timeshifted signal using fft
     M = np.real(scipy.ifft(
@@ -302,7 +302,7 @@ def timeshift_mat(M, t0: float, delta: float, taper_type="hann"):
     return M
 
 
-def timeshift_trace_pad(tr: Trace, t0: float, taper_type="hann"):
+def timeshift_trace_pad(tr: Trace, t0: float, taper_type="tukey", alpha=0.05):
     """Takes in a seismic trace and shifts it in time using the fft."""
 
     N = len(tr.data)
@@ -312,7 +312,7 @@ def timeshift_trace_pad(tr: Trace, t0: float, taper_type="hann"):
     freq = np.fft.fftfreq(Nfix, d=tr.stats.delta)
 
     # Get taper
-    taper = construct_taper(N, taper_type=taper_type)
+    taper = construct_taper(N, taper_type=taper_type, alpha=alpha)
 
     # Compute timeshifted signal using fft
     tr.data = np.real(scipy.ifft(
