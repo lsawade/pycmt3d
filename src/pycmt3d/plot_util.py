@@ -122,7 +122,6 @@ def _plot_new_seismogram_sub(trwin: TraceWindow, outputdir,
         outputfig = os.path.join(outputdir, "%s.%s.%s.%s.%s.%s.%s" % (
             tag, network, station, location, channel, suffix, figure_format))
 
-
     # Times and offsets computed individually, since the grid search applies
     # a timeshift which changes the times of the traces.
     if cmtsource is None:
@@ -156,7 +155,7 @@ def _plot_new_seismogram_sub(trwin: TraceWindow, outputdir,
     fontsize = 11
     text = "Network: %2s    Station: %s\n" \
            "Location: %2s  Channel: %3s" \
-            % (network, station, location, channel)
+           % (network, station, location, channel)
     if trwin.velocity:
         text += "\nV"
     ax1.text(0.005, 0.95, text,
@@ -627,7 +626,7 @@ class PlotInvSummary(object):
         # Moment Tensors
         format1 = "%15.4e  %15.4e  %15.4e  %15.4e  %10.2f%%"
         # CMT/HDR
-        format2 = r"%10.3f s  %13.3f s  %13.3f s  %13.3f s  %13.2f%%"
+        # format2 = r"%10.3f s  %13.3f s  %13.3f s  %13.3f s  %13.2f%%"
         # Depth
         format3 = "%10.3f km  %12.3f km  %12.3f km  %12.3f km  %12.2f%%"
         # LatLon

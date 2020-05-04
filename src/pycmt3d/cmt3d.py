@@ -15,7 +15,7 @@ import numpy as np
 from copy import deepcopy
 from collections import defaultdict
 from . import logger
-from .util import random_select, sum_matrix
+from .util import sum_matrix
 from .util import get_cmt_par, dump_json
 from .measure import compute_derivatives, calculate_variance_on_trace
 from .measure import compute_new_syn_on_trwin
@@ -344,8 +344,6 @@ class Cmt3D(object):
             self._ensemble_measurements_in_trwin()
         A_bootstrap = []
         b_bootstrap = []
-        n_subset = \
-            max(int(self.config.bootstrap_subset_ratio * ntrwins), 1)
         logger.info("Bootstrap repeat: %d" % (self.config.bootstrap_repeat))
 
         for i in range(self.config.bootstrap_repeat):
@@ -665,8 +663,8 @@ class Cmt3D(object):
         outdict["oldcmt"] = self.cmtsource.__dict__
         outdict["newcmt"] = self.new_cmtsource.__dict__
         outdict["wave_dict"] = self.trace_info_dict()
-        outdict["stations"] = set([(window.latitude, window.longitude) for window
-                                   in self.data_container.trwins])
+        outdict["stations"] = set([(window.latitude, window.longitude)
+                                   for window in self.data_container.trwins])
         outdict["nwindows"] = self.data_container.nwindows
         outdict["bootstrap_mean"] = self.par_mean.tolist()
         outdict["bootstrap_std"] = self.par_std.tolist()
@@ -694,7 +692,6 @@ class Cmt3D(object):
         outdict["mode"] = mode
 
         dump_json(outdict, filename)
-
 
     def trace_info_dict(self):
         """Gets all import information from trace such as location,
