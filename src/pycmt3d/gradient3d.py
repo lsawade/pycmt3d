@@ -929,9 +929,6 @@ class Gradient(object):
         self.tapers = tapers
         self.delta = delta
 
-        # Create date normalization
-        self.d2 = 1 #np.sum((self.tapers * self.obsd) ** 2, axis=1)
-
         # Method of choice Gauss-Newton or Newton
         if method in ["gn", "n"]:
             self.method = method
@@ -1120,8 +1117,8 @@ class Gradient(object):
         J22 = np.sum(dsddt ** 2 * self.tapers, axis=1)
         J21 = np.sum(dsda * dsddt * self.tapers, axis=1)
 
-        return np.array([[np.sum(J11 / self.d2), np.sum(J21 / self.d2)],
-                         [np.sum(J21 / self.d2), np.sum(J22 / self.d2)]])
+        return np.array([[np.sum(J11), np.sum(J21)],
+                         [np.sum(J21), np.sum(J22)]])
 
     def compute_g(self):
         """Computing the analytical gradient with respect

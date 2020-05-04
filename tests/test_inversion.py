@@ -35,6 +35,7 @@ CMTFILE = os.path.join(DATA_DIR, "CMTSOLUTION")
 
 def copy_files(files, destdir):
     for f in files:
+        print(os.path.join(destdir, os.path.basename(f)))
         shutil.copy(f, os.path.join(destdir, os.path.basename(f)))
 
 
@@ -99,6 +100,8 @@ def test_inversion(cmtsource, tmpdir):
     outdir = os.path.join(str(tmpdir))
     newdata_dir = os.path.join(outdir, "data_T006_T030")
     newsyn_dir = os.path.join(outdir, "syn_T006_T030")
+    if not os.path.exists(newdata_dir):
+        os.makedirs(newdata_dir)
 
     # Copy OBSD files to new directory
     files = glob.glob(os.path.join(OBSD_DIR, "*.sac.d"))
@@ -136,6 +139,7 @@ def test_inversion(cmtsource, tmpdir):
     copy_files([window_file], outdir)
     newwinfile = os.path.join(outdir, "flexwin_T006_T030.output.two_stations")
 
+    os.chdir(outdir)
     dcon_new = DataContainer()
     dcon_new.add_measurements_from_sac(newwinfile, tag="T006_T030",
                                    file_format="txt")
@@ -169,7 +173,6 @@ if __name__ == "__main__":
 
     # Copy OBSD files to new directory
     files = glob.glob(os.path.join(OBSD_DIR, "*.sac.d"))
-    print(files)
     copy_files(files, newdata_dir)
 
     # Construct data container with the old files.
