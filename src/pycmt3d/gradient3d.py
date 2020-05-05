@@ -929,9 +929,6 @@ class Gradient(object):
         self.tapers = tapers
         self.delta = delta
 
-        # Create date normalization
-        self.d2 = np.sum((self.tapers * self.obsd) ** 2, axis=1)
-
         # Method of choice Gauss-Newton or Newton
         if method in ["gn", "n"]:
             self.method = method
@@ -1107,10 +1104,8 @@ class Gradient(object):
         dsda = - self.shifted
         dsddt = self.a * np.gradient(self.shifted, self.delta, axis=-1)
 
-        return np.array([np.sum(np.sum(self.res * dsda * self.tapers, axis=1)
-                                / self.d2[:, np.newaxis]),
-                         np.sum(np.sum(self.res * dsddt * self.tapers, axis=1)
-                                / self.d2[:, np.newaxis])])
+        return np.array([np.sum(self.res * dsda * self.tapers),
+                         np.sum(self.res * dsddt * self.tapers)])
 
     def compute_JJ(self):
         """Gauss Newton approach with JtJ delta m.""""""Computes the Gauss Newton approximate Hessian.
@@ -1123,8 +1118,8 @@ class Gradient(object):
         J22 = np.sum(dsddt ** 2 * self.tapers, axis=1)
         J21 = np.sum(dsda * dsddt * self.tapers, axis=1)
 
-        return np.array([[np.sum(J11 / self.d2), np.sum(J21 / self.d2)],
-                         [np.sum(J21 / self.d2), np.sum(J22 / self.d2)]])
+        return np.array([[np.sum(J11), np.sum(J21)],
+                         [np.sum(J21), np.sum(J22)]])
 
     def compute_g(self):
         """Computing the analytical gradient with respect to the model parameters
@@ -1168,7 +1163,7 @@ class Gradient(object):
         and computes the misfit between the input and observed data.
         """
         return 0.5 * np.sum(np.sum(self.tapers * (self.obsd - self.ssynt) ** 2,
-                                   axis=1) / self.d2)
+                                   axis=1))
 
     def compute_residual(self):
         """Takes in a set of data (needs to be same as original obsd data

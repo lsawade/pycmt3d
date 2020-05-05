@@ -1087,7 +1087,6 @@ class PlotInvSummary(object):
             get_new_locations(cmt_lat, cmt_lon,
                               new_cmt_lat, new_cmt_lon,
                               padding)
-
         # Plot points
         markersize = 7.5
         ax.plot(cmt_lon, cmt_lat, "k.", zorder=200,

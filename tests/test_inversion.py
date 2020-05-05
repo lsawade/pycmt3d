@@ -176,7 +176,7 @@ if __name__ == "__main__":
     copy_files(files, newdata_dir)
 
     # Construct data container with the old files.
-    dcon_two = construct_dcon_three()
+    dcon_two = construct_dcon_two()
 
     weight_config = DefaultWeightConfig(
         normalize_by_energy=False, normalize_by_category=False,
