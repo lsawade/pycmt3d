@@ -176,10 +176,10 @@ if __name__ == "__main__":
     copy_files(files, newdata_dir)
 
     # Construct data container with the old files.
-    dcon_two = construct_dcon_two()
+    dcon_two = construct_dcon_three()
 
     weight_config = DefaultWeightConfig(
-        normalize_by_energy=False, normalize_by_category=False,
+        normalize_by_energy=True, normalize_by_category=True,
         comp_weight={"Z": 1.0, "R": 1.0, "T": 1.0},
         love_dist_weight=1.0, pnl_dist_weight=1.0,
         rayleigh_dist_weight=1.0, azi_exp_idx=0.5)
@@ -187,7 +187,8 @@ if __name__ == "__main__":
     config = Config(9, dlocation=0.5, ddepth=0.5, dmoment=1.0e22,
                     zero_trace=True, weight_data=True, wave_weight=True,
                     station_correction=True, envelope_coef=0.5,
-                    weight_config=weight_config)
+                    weight_config=weight_config,
+                    bootstrap=True, bootstrap_repeat=50)
 
     srcinv = Cmt3D(cmt, dcon_two, config)
     srcinv.source_inversion()
@@ -203,9 +204,9 @@ if __name__ == "__main__":
 
     # Create new datacontainer
     window_file = os.path.join(DATA_DIR,
-                               "flexwin_T006_T030.output.two_stations")
+                               "flexwin_T006_T030.output")
     copy_files([window_file], outdir)
-    newwinfile = os.path.join(outdir, "flexwin_T006_T030.output.two_stations")
+    newwinfile = os.path.join(outdir, "flexwin_T006_T030.output")
 
     os.chdir(outdir)
 
