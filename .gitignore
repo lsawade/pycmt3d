@@ -14,3 +14,7 @@ log.txt
 .mypy_cache
 ._.DS_Store
 .vscode
+test.json
+*test.json
+*test.json
+*.json

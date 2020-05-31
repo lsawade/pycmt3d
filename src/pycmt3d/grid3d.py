@@ -507,9 +507,9 @@ class Grid3d(object):
         """
 
         choice_array = []
-        for k, trwin in enumerate(self.data_container):
-            for l in range(trwin.nwindows):
-                if random_array[k]:
+        for _k, trwin in enumerate(self.data_container):
+            for _l in range(trwin.nwindows):
+                if random_array[_k]:
                     choice_array.append(True)
                 else:
                     choice_array.append(False)
