@@ -862,8 +862,8 @@ class PlotInvSummary(object):
         gl = ax.gridlines(crs=PlateCarree(), draw_labels=False,
                           linewidth=1, color='lightgray', alpha=0.5,
                           linestyle='-')
-        gl.xlabels_top = False
-        gl.ylabels_left = False
+        gl.top_labels = False
+        gl.left_labels = False
         gl.xlines = True
         # ax.outline_patch.set_visible(False)
 
@@ -891,13 +891,13 @@ class PlotInvSummary(object):
             maxlon = np.max(self.sta_lon)
             minlat = np.min(self.sta_lat)
             maxlat = np.max(self.sta_lat)
-            padding = 5.
+            padding = 1.0
 
             # Updated parallels..
             ax.set_extent([minlon - padding, maxlon + padding,
                            minlat - padding, maxlat + padding])
-            width_beach = min((maxlon + 2 * padding - minlon) / (4 * padding),
-                              (maxlat + 2 * padding - minlat) / (4 * padding))
+            width_beach = min((maxlon + 2 * padding - minlon) / (8 * padding),
+                              (maxlat + 2 * padding - minlat) / (8 * padding))
         else:
             ax.set_global()
             width_beach = 20
@@ -1016,7 +1016,7 @@ class PlotInvSummary(object):
         cmt_lat = self.cmtsource.latitude
         cmt_lon = self.cmtsource.longitude
 
-        padding = 1
+        padding = 0.1
         minlon = cmt_lon - padding
         maxlon = cmt_lon + padding
         minlat = cmt_lat - padding
@@ -1026,7 +1026,6 @@ class PlotInvSummary(object):
         ax.set_xlim([minlon - padding, maxlon + padding])
         ax.set_ylim([minlat - padding, maxlat + padding])
         ax.frameon = True
-        ax.outline_patch.set_linewidth(0.75)
 
         lon_tick = np.arange(np.floor(minlon) - padding,
                              np.ceil(maxlon) + 1.51 * padding,
@@ -1040,8 +1039,8 @@ class PlotInvSummary(object):
         gl = ax.gridlines(crs=PlateCarree(), draw_labels=True,
                           linewidth=1, color='lightgray', alpha=0.5,
                           linestyle='-')
-        gl.xlabels_top = False
-        gl.ylabels_left = False
+        gl.top_labels = False
+        gl.left_labels = False
         gl.xlines = True
         gl.xlocator = mticker.FixedLocator(lon_tick)
         gl.ylocator = mticker.FixedLocator(lat_tick)
@@ -1071,8 +1070,8 @@ class PlotInvSummary(object):
         ax = plt.gca()
 
         # Beachball width
-        width_beach = min((maxlon + 2 * padding - minlon) / (5 * padding),
-                          (maxlat + 2 * padding - minlat) / (5 * padding))
+        width_beach = min((maxlon + 2 * padding - minlon) / (180 * padding),
+                          (maxlat + 2 * padding - minlat) / (180 * padding))
 
         # Get CMT location
         cmt_lat = self.cmtsource.latitude

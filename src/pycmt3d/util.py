@@ -245,13 +245,15 @@ def construct_taper(npts, taper_type="tukey", alpha=0.2):
     :return:
     """
     taper_type = taper_type.lower()
-    _options = ['hann', 'boxcar', 'tukey']
+    _options = ['hann', 'boxcar', 'tukey', 'cosine']
     if taper_type not in _options:
         raise ValueError("taper type option: %s" % taper_type)
     if taper_type == "hann":
         taper = signal.hann(npts)
     elif taper_type == "boxcar":
         taper = signal.boxcar(npts)
+    elif taper_type == "cosine":
+        taper = signal.cosine(npts)
     elif taper_type == "tukey":
         taper = signal.tukey(npts, alpha=alpha)
     else:

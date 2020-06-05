@@ -200,8 +200,6 @@ class Config(object):
              self.dlocation, 1.0, 1.0])[:npar]
 
         # scaled cmt perturbation
-        print(self.dcmt_par)
-        print(self.scale_vector)
         self.dcmt_par_scaled = self.dcmt_par / self.scale_vector
 
         self.bootstrap = bootstrap

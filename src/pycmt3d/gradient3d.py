@@ -1017,6 +1017,10 @@ class Gradient(object):
             self.dt_list.append(self.dt)
             self.a_list.append(self.a)
 
+            if np.abs((self.chi - self.chip) / self.chip) > 1.0:
+                logger.debug("Misfit not decreasing.")
+                break
+
             if np.abs((self.chi - self.chip) / self.chip) < 1e-3:
                 logger.debug("No improvement!")
                 break
