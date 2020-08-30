@@ -781,6 +781,8 @@ class Gradient3d(object):
         cmtfile = os.path.join(outputdir, outputfn)
         logger.info("New cmt file: %s" % cmtfile)
 
+        self.new_cmtsource.write_CMTSOLUTION_file(cmtfile)
+
     def extract_metadata(self, cat_name, meta_varname):
         data_old = []
         data_new = []

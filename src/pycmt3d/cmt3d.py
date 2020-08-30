@@ -349,7 +349,7 @@ class Cmt3D(object):
         for i in range(self.config.bootstrap_repeat):
 
             random_array = np.random.choice(ntrwins, ntrwins, replace=True)
-            
+
             _, _, _, _, A, b = \
                 self._ensemble_measurements(Aws, bws, Aes, bes,
                                             choices=random_array)
