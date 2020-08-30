@@ -23,7 +23,7 @@ before_install:
     - source activate condaenv
     - conda install obspy
     - conda install cartopy
-    - conda install python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib nose pytest flake8 sphinx lxml sqlalchemy mock future
+    - conda install python=$TRAVIS_PYTHON_VERSION numpy scipy matplotlib==3.2.1 nose pytest flake8 sphinx lxml sqlalchemy mock future
     - pip install --user -r requirements.txt
     - pip install coverage
     - pip install coveralls
