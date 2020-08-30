@@ -452,7 +452,7 @@ class DataContainer(Sequence):
         """
         t1 = time.time()
 
-        _options = ["obsolute_time", "relative_time"]
+        _options = ["absolute_time", "relative_time"]
 
         window_time_mode = window_time_mode.lower()
         if window_time_mode not in _options:

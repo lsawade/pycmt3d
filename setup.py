@@ -62,6 +62,7 @@ setup(
     url='https://github.com/wjlei1990/pycmt3d',
     packages=find_packages("src"),
     package_dir={"": "src"},
+    package_data={'pycmt3d': ['data/faults/gem*']},
     tests_require=['pytest'],
     cmdclass={'test': PyTest},
     include_package_data=True,
