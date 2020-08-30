@@ -260,15 +260,15 @@ class PlotStats(object):
             abs_max = max(abs(ax_min), abs(ax_max))
             ax_min = -abs_max
             ax_max = abs_max
-        
+
         # Checking values:#
         logger.debug("Category-vtype: %s-%s" % (cat, vtype))
-        logger.debug("[amin, amax] = [%f, %f]" %(ax_min, ax_max))
+        logger.debug("[amin, amax] = [%f, %f]" % (ax_min, ax_max))
 
         if np.abs(ax_max - ax_min) < 1e-15:
             logger.debug("Changed bin boundaries")
-            num_bin= 1
-            ax_min = -0.1 
+            num_bin = 1
+            ax_min = -0.1
             ax_max = 0.1
 
         binwidth = (ax_max - ax_min) / num_bin
