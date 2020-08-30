@@ -211,7 +211,7 @@ def test_cmt_bootstrap(cmtsource, tmpdir):
     srcinv = Cmt3D(cmtsource, dcon_two, config)
     srcinv.source_inversion()
     srcinv.plot_summary(str(tmpdir))
-
+    assert False
 
 def test_write_new_cmtfile(cmtsource, tmpdir):
     srcinv = setup_inversion(cmtsource)

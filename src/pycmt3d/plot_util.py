@@ -244,6 +244,7 @@ class PlotStats(object):
     @staticmethod
     def plot_stats_histogram_one_entry(pos, cat, vtype, data_b, data_a,
                                        num_bin):
+
         plt.subplot(pos)
         plt.xlabel(vtype, fontsize=15)
         plt.ylabel(cat, fontsize=15)
@@ -259,6 +260,17 @@ class PlotStats(object):
             abs_max = max(abs(ax_min), abs(ax_max))
             ax_min = -abs_max
             ax_max = abs_max
+        
+        # Checking values:#
+        logger.debug("Category-vtype: %s-%s" % (cat, vtype))
+        logger.debug("[amin, amax] = [%f, %f]" %(ax_min, ax_max))
+
+        if np.abs(ax_max - ax_min) < 1e-15:
+            logger.debug("Changed bin boundaries")
+            num_bin= 1
+            ax_min = -0.1 
+            ax_max = 0.1
+
         binwidth = (ax_max - ax_min) / num_bin
 
         # Stats
